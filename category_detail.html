@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}{{ category.name }} Haberleri · Ajans Paneli{% endblock %}
+{% block content %}
+<h1>{{ category.name }} Haberleri</h1>
+<div class="sub">En güncel haberler önce gösterilir.</div>
+
+<div class="panel">
+  <nav class="category-nav" aria-label="Haber kategorileri">
+    {% for item in categories %}
+      <a href="{% url 'studio:category' item.slug %}"{% if item.pk == category.pk %} aria-current="page"{% endif %}>{{ item.name }}</a>
+    {% endfor %}
+  </nav>
+</div>
+
+<div class="panel">
+  <ul class="rundown">
+    {% for article in articles %}
+      <li>
+        <div class="no">{{ forloop.counter|add:page_obj.start_index|add:"-1" }}</div>
+        <div>
+          <div class="title">{{ article.title|truncatechars:140 }}</div>
+          <div class="meta">{{ article.source.name }}{% if article.country_code %} · {{ article.country_code }}{% endif %}</div>
+        </div>
+        <div class="dur">{{ article.displayed_at|date:"d.m.Y H:i" }}</div>
+      </li>
+    {% empty %}
+      <li class="empty">Bu kategoride henüz haber yok.</li>
+    {% endfor %}
+  </ul>
+</div>
+
+{% if page_obj.has_other_pages %}
+  <div class="pagination">
+    {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}">← Önceki</a>{% endif %}
+    <span>Sayfa {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}">Sonraki →</a>{% endif %}
+  </div>
+{% endif %}
+{% endblock %}

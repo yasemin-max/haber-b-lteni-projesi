@@ -1,0 +1,158 @@
+:root {
+  --bg: #0b0f17;
+  --panel: #151b26;
+  --panel-2: #1c2432;
+  --line: #232c3b;
+  --text: #e6edf7;
+  --muted: #8b98ad;
+  --red: #e5484d;
+  --green: #30a46c;
+  --amber: #f5a524;
+  --blue: #4c8dff;
+  --radius: 10px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", Roboto, system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+a { color: var(--blue); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ---------- üst bar ---------- */
+.topbar {
+  display: flex; align-items: center; gap: 18px;
+  padding: 14px 22px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  position: sticky; top: 0; z-index: 20;
+}
+.brand { font-weight: 800; letter-spacing: .5px; font-size: 17px; }
+.brand span { color: var(--red); }
+.topbar nav { display: flex; gap: 16px; margin-left: auto; }
+.topbar nav a { color: var(--muted); font-size: 14px; }
+.topbar nav a:hover, .topbar nav a.on { color: var(--text); }
+
+/* ---------- ON AIR rozeti ---------- */
+/* Bu rozet sayfanin en ustunde olmali: operator 1 saniyede
+   "canli mi yayinda mi" sorusunu cevaplamali. */
+.onair {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: rgba(229, 72, 77, .14);
+  border: 1px solid var(--red);
+  color: #ff8a8d;
+  padding: 4px 11px; border-radius: 999px;
+  font-size: 11px; font-weight: 800; letter-spacing: 1px;
+}
+.onair i {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--red);
+  animation: pulse 1.6s infinite;   /* yanip sonen "canli" noktasi */
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: .25; }
+}
+
+/* ---------- yerlesim ---------- */
+.wrap { max-width: 1280px; margin: 0 auto; padding: 22px; }
+.grid { display: grid; gap: 18px; }
+.grid-2 { grid-template-columns: 420px 1fr; }
+@media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } }
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+}
+.panel h2 {
+  margin: 0 0 12px; font-size: 12px; font-weight: 700;
+  letter-spacing: 1.4px; text-transform: uppercase; color: var(--muted);
+}
+
+/* ---------- istatistik kutulari ---------- */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin-bottom: 18px; }
+.stat { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
+.stat b { display: block; font-size: 26px; line-height: 1.1; }
+.stat small { color: var(--muted); font-size: 11px; letter-spacing: .6px; text-transform: uppercase; }
+
+/* ---------- video oynatici ---------- */
+.player { width: 100%; border-radius: var(--radius); background: #000; display: block; }
+.player-wrap { position: relative; }
+
+/* ---------- RUNDOWN (bulten akisi) ----------
+   Gercek yayin "rundown" denilen liste, sadece haberin hangi sirada
+   okunacagini gosterir. Burada her satir: sira, tip, baslik, spiker,
+   kategori, kaynak ve sure. */
+.rundown { list-style: none; margin: 0; padding: 0; counter-reset: item; }
+.rundown li {
+  display: grid;
+  grid-template-columns: 30px 1fr auto;
+  gap: 12px;
+  padding: 11px 4px;
+  border-bottom: 1px solid var(--line);
+}
+.rundown li:last-child { border-bottom: 0; }
+.rundown .no {
+  color: var(--muted); font-variant-numeric: tabular-nums;
+  font-weight: 700; text-align: right; font-size: 13px;
+}
+.rundown .title { font-weight: 600; }
+.rundown .meta { color: var(--muted); font-size: 12px; margin-top: 3px; }
+.rundown .dur {
+  color: var(--muted); font-size: 12px; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* GECIS kalemleri ("Simdi X'ten bir bakis") farkli renkte:
+   operator bunun haber DEGIL gecis oldugunu anlasin. */
+.rundown li.trans .title { color: var(--blue); font-style: italic; }
+.rundown li.intro .title { color: var(--amber); }
+.rundown li.outro .title { color: var(--muted); }
+
+/* ---------- rozetler ---------- */
+.badge {
+  display: inline-block; padding: 2px 8px; border-radius: 999px;
+  font-size: 11px; font-weight: 700; border: 1px solid var(--line);
+  color: var(--muted); background: var(--panel-2);
+}
+.badge.ok      { color: var(--green); border-color: rgba(48,164,108,.4); }
+.badge.wait    { color: var(--amber); border-color: rgba(245,165,36,.4); }
+.badge.err     { color: var(--red);   border-color: rgba(229,72,77,.4); }
+.badge.cat     { color: var(--blue);  border-color: rgba(76,141,255,.35); }
+
+/* ---------- spiker kartlari ---------- */
+.anchors { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 14px; }
+.anchor { background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; text-align: center; padding-bottom: 12px; }
+.anchor img { width: 100%; aspect-ratio: 2/3; object-fit: cover; display: block; }
+.anchor .nm { font-weight: 700; font-size: 13px; margin-top: 9px; }
+.anchor .cc { color: var(--muted); font-size: 11px; }
+.anchor.main { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue) inset; }
+
+/* ---------- liste (bulten / kaynak) ---------- */
+.list { list-style: none; margin: 0; padding: 0; }
+.list li { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+.list li:last-child { border-bottom: 0; }
+.grow { flex: 1; min-width: 0; }
+.trunc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.muted { color: var(--muted); font-size: 12px; }
+.num { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 12px; }
+
+/* kaynak adinin rengi = logo kutusu */
+.src {
+  width: 26px; height: 26px; border-radius: 6px; flex: none;
+  display: grid; place-items: center;
+  font-size: 11px; font-weight: 800; color: #0b0f17; background: var(--blue);
+}
+
+.empty { color: var(--muted); text-align: center; padding: 26px 0; font-size: 14px; }
+h1 { font-size: 22px; margin: 0 0 4px; }
+.sub { color: var(--muted); font-size: 13px; margin-bottom: 18px; }

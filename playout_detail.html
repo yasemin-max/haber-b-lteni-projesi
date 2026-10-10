@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}{{ playout.title }} · Ajans Paneli{% endblock %}
+{% block content %}
+<h1>{{ playout.title }}</h1>
+<div class="sub">
+  {{ playout.item_count }} kalem · {{ playout.duration_display }} ·
+  {{ playout.categories_used }} · {{ playout.created_at|date:"d.m.Y H:i" }}
+  {% if playout.status == 'ready' %}<span class="badge ok">Hazır</span>
+  {% elif playout.status == 'error' %}<span class="badge err">Hata</span>
+  {% else %}<span class="badge">Taslak</span>{% endif %}
+</div>
+
+<div class="grid grid-2">
+
+  <!-- ============ VIDEO ============ -->
+  <div class="panel">
+    <h2>Bülten Videosu</h2>
+
+    {% if has_video %}
+      {% comment %}
+      `controls` kullaniciya oynat/kes duraklat verir.
+      Dikey video (768x1152) oldugu icin `controls` sart: otomatik
+      oynatmak kacinintidir (kullanici sesiyle birlikte acmak
+      istemeden baslar).
+      {% endcomment %}
+      <video class="player" controls preload="metadata" playsinline>
+        <source src="{{ video_url }}" type="video/mp4">
+        Tarayıcınız video etiketini desteklemiyor.
+      </video>
+      <div class="muted" style="margin-top:8px;">
+        <a href="{{ video_url }}" download>⬇ Videoyu indir (MP4)</a>
+      </div>
+    {% else %}
+      <div class="empty">
+        Bu bülten için video bulunamadı veya saklama süresi doldu.<br>
+        <code>manage.py make_bulletin --playout={{ playout.pk }} --video-only</code>
+      </div>
+    {% endif %}
+
+    {% if playout.error_message %}
+      <div class="muted" style="margin-top:10px;color:#ff8a8d;">
+        Hata: {{ playout.error_message }}
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- ============ RUNDOWN ============ -->
+  <div class="panel">
+    <h2>Rundown (Yayın Akışı)</h2>
+
+    <ul class="rundown">
+      {% for it in items %}
+        {# `it.kind` degerine gore sinf veriyoruz: gecis/intro/outro
+           farkli renklendirilir, operator icin hizli okunur. #}
+        <li class="{% if it.kind == 'transition' %}trans{% elif it.kind == 'intro' %}intro{% elif it.kind == 'outro' %}outro{% endif %}">
+          <div class="no">{{ it.order }}</div>
+          <div>
+            <div class="title">{{ it.title_text|default:it.text|truncatechars:120 }}</div>
+            <div class="meta">
+              {% if it.anchor %}{{ it.anchor.name }} · {% endif %}
+              {% if it.category_name %}<span class="badge cat">{{ it.category_name }}</span>{% endif %}
+              {% if it.source_text %} · {{ it.source_text }}{% endif %}
+            </div>
+            {% if it.article.video_url %}
+              <video class="article-video" controls muted preload="metadata" playsinline>
+                <source src="{{ it.article.video_url }}">
+                Tarayıcınız bu haber videosunu oynatamıyor.
+              </video>
+            {% endif %}
+          </div>
+          <div class="dur">{{ it.duration_seconds|floatformat:1 }} sn</div>
+        </li>
+      {% empty %}
+        <li class="empty">Bu bültenin içeriği yok.</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Ajans Paneli{% endblock %}
+{% block content %}
+<div class="stats">
+  <div class="stat"><b>{{ stats.articles }}</b><small>Haber</small></div>
+  <div class="stat"><b>{{ stats.sources }}</b><small>Aktif Kaynak</small></div>
+  <div class="stat"><b>{{ stats.playouts }}</b><small>Bülten</small></div>
+  <div class="stat"><b>{{ stats.minutes }}</b><small>Dk Yayın</small></div>
+  <div class="stat"><b>{{ stats.anchors }}</b><small>Spiker</small></div>
+</div>
+
+<div class="grid grid-2">
+
+  <!-- ============ SOL: SON BULTENLER ============ -->
+  <div class="panel">
+    <h2>Son Bültenler</h2>
+    <ul class="list">
+      {% for p in playouts %}
+        <li>
+          <div class="grow">
+            <a class="trunc" href="{% url 'studio:playout_detail' p.pk %}">{{ p.title }}</a>
+            <div class="muted">
+              {{ p.item_count }} kalem · {{ p.duration_display }}
+              {% if p.categories_used %} · {{ p.categories_used|truncatechars:40 }}{% endif %}
+            </div>
+          </div>
+          {# Durum rozeti: renk = durum #}
+          {% if p.status == 'ready' %}<span class="badge ok">Hazır</span>
+          {% elif p.status == 'error' %}<span class="badge err">Hata</span>
+          {% elif p.status == 'building' %}<span class="badge wait">Üretiliyor</span>
+          {% else %}<span class="badge">Taslak</span>{% endif %}
+        </li>
+      {% empty %}
+        <li class="empty">Henüz bülten üretilmedi.<br>
+          <code>manage.py make_bulletin</code> komutunu çalıştır.</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <!-- ============ SAG: SPIKERLER ============ -->
+  <div>
+    <div class="panel">
+      <h2>Spikerler</h2>
+      <div class="anchors">
+        {% for a in anchors %}
+          <div class="anchor {% if a.is_main %}main{% endif %}">
+            {% if a.image_path %}
+              <img src="/media/{{ a.image_path }}" alt="{{ a.name }}">
+            {% endif %}
+            <div class="nm">{{ a.name }}</div>
+            <div class="cc">{{ a.country_name }}</div>
+            {% if a.is_main %}<span class="badge cat">ANA</span>{% endif %}
+          </div>
+        {% empty %}
+          <div class="empty">
+            Spiker yok. <code>manage.py build_anchor --main</code> çalıştır.
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:18px;">
+      <h2>Kategoriler</h2>
+      <ul class="list">
+        {% for c in categories %}
+          <li>
+            <a class="grow trunc" href="{% url 'studio:category' c.slug %}">{{ c.name }}</a>
+            <span class="num">{{ c.article_total }} haber</span>
+          </li>
+        {% empty %}
+          <li class="empty">Kategori yok.</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+
+</div>
+
+<!-- ============ EN SON HABERLER ============ -->
+<div class="panel" style="margin-top:18px;">
+  <h2>Son Haberler</h2>
+  <ul class="rundown">
+    {% for a in latest %}
+      <li>
+        <div class="no">{{ forloop.counter }}</div>
+        <div>
+          <div class="title">{{ a.title|truncatechars:110 }}</div>
+          <div class="meta">
+            {% if a.source %}{{ a.source.name }}{% else %}kaynak yok{% endif %}
+            {% if a.category %} · {{ a.category.name }}{% endif %}
+            {% if a.country_code %} · {{ a.country_code }}{% endif %}
+          </div>
+        </div>
+        <div class="dur">{{ a.displayed_at|date:"d.m.Y H:i" }}</div>
+      </li>
+    {% empty %}
+      <li class="empty">Henüz haber çekilmedi. <code>manage.py fetch_news</code></li>
+    {% endfor %}
+  </ul>
+</div>
+
+{% endblock %}
