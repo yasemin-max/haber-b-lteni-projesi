@@ -83,7 +83,7 @@ def dashboard(request):
 
     return render(
         request,
-        "studio/dashboard.html",
+        "dashboard.html",
         {
             "playouts": playouts,
             "anchors": anchors,
@@ -109,7 +109,7 @@ def playout_detail(request, pk: int):
 
     return render(
         request,
-        "studio/playout_detail.html",
+        "playout_detail.html",
         {
             "playout": playout,
             "items": playout.items.all(),
@@ -125,4 +125,4 @@ def source_list(request):
     sources = Source.objects.annotate(article_total=Count("articles")).order_by(
         "-article_total"
     )
-    return render(request, "studio/sources.html", {"sources": sources})
+    return render(request, "sources.html", {"sources": sources})
