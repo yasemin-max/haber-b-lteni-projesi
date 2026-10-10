@@ -1,6 +1,41 @@
 {% extends "base.html" %}
-{% block title %}Ajans Paneli{% endblock %}
+{% block title %}Ana Haber Bülteni Stüdyosu{% endblock %}
 {% block content %}
+
+<div class="panel" style="margin-bottom:18px;">
+  <h2>Stüdyo Kontrolleri</h2>
+  <div class="controls">
+    <form method="post" action="{% url 'studio:start_fetch' %}">
+      {% csrf_token %}
+      <button class="btn" type="submit"
+        {% if jobs.fetch.status == 'running' %}disabled{% endif %}>
+        {% if jobs.fetch.status == 'running' %}Haber çekiliyor…{% else %}Haber Çek{% endif %}
+      </button>
+    </form>
+    <form method="post" action="{% url 'studio:start_build' %}">
+      {% csrf_token %}
+      <button class="btn primary" type="submit"
+        {% if jobs.build.status == 'running' %}disabled{% endif %}>
+        {% if jobs.build.status == 'running' %}Bülten üretiliyor…{% else %}Bülten Oluştur{% endif %}
+      </button>
+    </form>
+    <a class="btn link" href="{% url 'studio:live' %}" target="_blank">Canlı Yayını Aç</a>
+  </div>
+
+  {% for key, job in jobs.items %}
+    <div class="job {% if job.status == 'running' %}wait{% elif job.status == 'error' %}err{% elif job.status == 'done' %}done{% endif %}">
+      <div class="head">
+        <b>{{ job.label }}</b>
+        {% if job.status == 'running' %}<span class="badge wait">Çalışıyor</span>
+        {% elif job.status == 'error' %}<span class="badge err">Hata</span>
+        {% elif job.status == 'done' %}<span class="badge ok">Tamamlandı</span>{% endif %}
+        <span class="muted">{{ job.started|date:"d.m.Y H:i" }}{% if job.finished %} → {{ job.finished|date:"H:i" }}{% endif %}</span>
+      </div>
+      {% if job.output %}<pre>{{ job.output }}</pre>{% endif %}
+    </div>
+  {% endfor %}
+</div>
+
 <div class="stats">
   <div class="stat"><b>{{ stats.articles }}</b><small>Haber</small></div>
   <div class="stat"><b>{{ stats.sources }}</b><small>Aktif Kaynak</small></div>
@@ -98,5 +133,9 @@
     {% endfor %}
   </ul>
 </div>
+
+{% if jobs.fetch.status == 'running' or jobs.build.status == 'running' %}
+<script>setTimeout(function(){ location.reload(); }, 8000);</script>
+{% endif %}
 
 {% endblock %}

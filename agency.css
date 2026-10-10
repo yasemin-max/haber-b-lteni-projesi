@@ -156,3 +156,29 @@ a:hover { text-decoration: underline; }
 .empty { color: var(--muted); text-align: center; padding: 26px 0; font-size: 14px; }
 h1 { font-size: 22px; margin: 0 0 4px; }
 .sub { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+
+/* ---------- stüdyo kontrolleri ---------- */
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 18px; border-radius: var(--radius);
+  border: 1px solid var(--line); background: var(--panel-2);
+  color: var(--text); font-size: 14px; font-weight: 700; cursor: pointer;
+}
+.btn:hover { border-color: var(--blue); }
+.btn.primary { background: var(--red); border-color: var(--red); color: #fff; }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.link { background: transparent; }
+.btn:disabled { opacity: .55; cursor: progress; }
+.controls form { display: inline; }
+.job {
+  margin-top: 14px; border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--panel-2); padding: 12px 14px;
+}
+.job .head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.job pre {
+  margin: 0; max-height: 220px; overflow: auto; white-space: pre-wrap;
+  font-family: Consolas, monospace; font-size: 12px; color: var(--muted);
+}
+.job.err { border-color: rgba(229,72,77,.5); }
+.job.done { border-color: rgba(48,164,108,.5); }

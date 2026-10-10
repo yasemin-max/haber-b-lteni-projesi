@@ -1,18 +1,77 @@
 from pathlib import Path
 from urllib.parse import quote
+from io import StringIO
+import logging
 import mimetypes
 import re
+import threading
 
 from django.conf import settings
-from django.db import connection
+from django.core.management import call_command
+from django.db import close_old_connections, connection
 from django.db.utils import DatabaseError
 from django.db.models import Count, Q, Sum
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse, StreamingHttpResponse
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.core.paginator import Paginator
 from django.db.models.functions import Coalesce
+from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 from .models import Anchor, Article, Category, Playout, PlayoutItem, Source
+
+
+logger = logging.getLogger(__name__)
+
+_JOBS: dict[str, dict] = {}
+_JOBS_LOCK = threading.Lock()
+
+_JOB_DEFS = {
+    "fetch": ("Haber Çekme", "fetch_news", {"limit": 30}),
+    "build": ("Bülten Üretimi", "make_bulletin", {}),
+}
+
+
+def _job_status() -> dict[str, dict]:
+    with _JOBS_LOCK:
+        return {key: dict(value) for key, value in _JOBS.items()}
+
+
+def _start_job(key: str) -> bool:
+    if key not in _JOB_DEFS:
+        return False
+    with _JOBS_LOCK:
+        if _JOBS.get(key, {}).get("status") == "running":
+            return False
+        _JOBS[key] = {
+            "status": "running",
+            "label": _JOB_DEFS[key][0],
+            "started": timezone.now(),
+            "finished": None,
+            "output": "",
+        }
+
+    label, command, kwargs = _JOB_DEFS[key]
+
+    def worker():
+        close_old_connections()
+        buffer = StringIO()
+        status = "done"
+        try:
+            call_command(command, stdout=buffer, stderr=buffer, **kwargs)
+        except Exception as exc:  # noqa: BLE001 - arka planda kullaniciya gosterilir
+            status = "error"
+            buffer.write(f"\nHATA: {type(exc).__name__}: {exc}")
+            logger.exception("Arka plan gorevi basarisiz: %s", key)
+        finally:
+            close_old_connections()
+            output = buffer.getvalue()
+            with _JOBS_LOCK:
+                job = _JOBS.setdefault(key, {})
+                job.update(status=status, finished=timezone.now(), output=output[-8000:])
+
+    threading.Thread(target=worker, name=f"studio-job-{key}", daemon=True).start()
+    return True
 
 
 def healthcheck(request):
@@ -129,8 +188,21 @@ def dashboard(request):
         )
         .order_by("sort_order", "name"),
         "latest": latest[:10],
+        "jobs": _job_status(),
     }
     return render(request, "dashboard.html", context)
+
+
+@require_POST
+def start_fetch(request):
+    _start_job("fetch")
+    return redirect("studio:dashboard")
+
+
+@require_POST
+def start_build(request):
+    _start_job("build")
+    return redirect("studio:dashboard")
 
 
 def live(request):
