@@ -170,12 +170,16 @@ def build_bulletin(
 
 
 def _select_unplayed_articles() -> list[Article]:
-    """Yayinlanmis bultenlerde sunulmamis tum etkin haberleri dondurur."""
+    """Yayinlanmis bultenlerde sunulmamis tum etkin haberleri dondurur.
+
+    Sadece TAMAMLANMIS bultenlerdeki (READY / ON_AIR) haberler "sunulmus"
+    sayilir. Yarida kesilen (BUILDING) veya hata veren (ERROR) bultenlerin
+    haberleri havuza geri doner; boylece tek bir kesintida kanal susmaz.
+    """
     candidates = (
         Article.objects.filter(is_active=True)
         .exclude(
             playout_items__playout__status__in=(
-                Playout.BUILDING,
                 Playout.READY,
                 Playout.ON_AIR,
             )
@@ -349,9 +353,15 @@ def _get_main_anchor() -> Anchor | None:
     return Anchor.objects.filter(is_main=True).first()
 
 
+# Bu ulkeler icin ayri spiker olusturulmaz; haberleri ana spiker sunar.
+COUNTRIES_WITHOUT_DEDICATED_ANCHOR = {"IL"}
+
+
 def _get_anchor_for_country(country_code: str, main_anchor: Anchor) -> Anchor:
     """Haberi, ülke için kayıtlı spikerle eşleştir; yoksa yerel spiker kaydı aç."""
     if country_code == main_anchor.country_code:
+        return main_anchor
+    if country_code in COUNTRIES_WITHOUT_DEDICATED_ANCHOR:
         return main_anchor
 
     speaker = (
