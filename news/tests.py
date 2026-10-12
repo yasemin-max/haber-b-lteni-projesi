@@ -239,9 +239,11 @@ class BulletinCompositionTests(TestCase):
         items = list(playout.items.order_by("order"))
 
         self.assertEqual(playout.item_count, len(items))
-        self.assertEqual(items[1].article.title, "Test haberi")
-        self.assertIn("kesintisiz devam ediyor", items[-1].text)
-        self.assertFalse(any(item.kind == PlayoutItem.CLOSING for item in items))
+        self.assertEqual(items[0].kind, PlayoutItem.OPENING)
+        breaking_items = [item for item in items if item.kind == PlayoutItem.BREAKING]
+        self.assertTrue(breaking_items, "Son dakika kalemi uretilmeli")
+        self.assertEqual(breaking_items[0].article.title, "Test haberi")
+        self.assertTrue(any(item.kind == PlayoutItem.CLOSING for item in items))
         self.assertTrue(any("Kaynak: Test Kaynak" in item.text for item in items))
 
     def test_bulletin_includes_every_unplayed_active_story_without_old_limits(self):
@@ -289,7 +291,8 @@ class BulletinCompositionTests(TestCase):
             {item.article.title_key for item in story_items},
             {article.title_key for article in articles},
         )
-        self.assertEqual(playout.item_count, len(articles) + 2)
+        # Acilis + Turkiye gecisi + kapanis = 3 yapisal kalem
+        self.assertEqual(playout.item_count, len(articles) + 3)
 
     def test_bulletin_assigns_a_country_specific_anchor_to_each_story(self):
         category = Category.objects.create(name="Dunya", slug="dunya")
