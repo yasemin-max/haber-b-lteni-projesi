@@ -137,7 +137,7 @@ _GTTS_LANG_OVERRIDES = {"zh": "zh-CN", "he": "iw"}
 # (~85) da cok hizli (~155) da dogal degildir. Bu yuzden uretilen dosya
 # olculup hedef kelime hizina ulasacak atempo carpaniyla hizlandirilir.
 GTTS_BASE_SPEEDUP = 1.25  # daha yavaş tempo
-GTTS_TARGET_WPM = 105.0  # daha doğal ve anlaşılır konuşma hızı
+GTTS_TARGET_WPM = 95.0  # daha doğal ve anlaşılır konuşma hızı
 
 
 def _parse_rate_percent(rate: str) -> float:
