@@ -544,13 +544,8 @@ KR_COUNTRY_CODE = "KR"
 def _get_anchor_for_country(country_code: str, main_anchor: Anchor) -> Anchor:
     """Haberi, ülke için kayıtlı spikerle eşleştir; yoksa yerel spiker kaydı aç."""
     if country_code == IL_COUNTRY_CODE:
-        kr_anchor = (
-            Anchor.objects.filter(country_code=KR_COUNTRY_CODE, is_active=True)
-            .order_by("-is_main", "pk")
-            .first()
-        )
-        if kr_anchor:
-            return kr_anchor
+        main_anchor_local = _get_main_anchor() or main_anchor
+        return main_anchor_local
 
     if country_code == main_anchor.country_code:
         return main_anchor
