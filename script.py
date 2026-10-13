@@ -268,12 +268,7 @@ def _select_unplayed_articles() -> list[Article]:
     """
     candidates = (
         Article.objects.filter(is_active=True)
-        .exclude(
-            playout_items__playout__status__in=(
-                Playout.READY,
-                Playout.ON_AIR,
-            )
-        )
+        .exclude(playout_items__isnull=False)
         .select_related("category", "source")
         .order_by("-published_at", "-ingested_at", "-pk")
         .distinct()
@@ -542,8 +537,21 @@ def _get_main_anchor() -> Anchor | None:
 COUNTRIES_WITHOUT_DEDICATED_ANCHOR = set()
 
 
+IL_COUNTRY_CODE = "IL"
+KR_COUNTRY_CODE = "KR"
+
+
 def _get_anchor_for_country(country_code: str, main_anchor: Anchor) -> Anchor:
     """Haberi, ülke için kayıtlı spikerle eşleştir; yoksa yerel spiker kaydı aç."""
+    if country_code == IL_COUNTRY_CODE:
+        kr_anchor = (
+            Anchor.objects.filter(country_code=KR_COUNTRY_CODE, is_active=True)
+            .order_by("-is_main", "pk")
+            .first()
+        )
+        if kr_anchor:
+            return kr_anchor
+
     if country_code == main_anchor.country_code:
         return main_anchor
     if country_code in COUNTRIES_WITHOUT_DEDICATED_ANCHOR:
