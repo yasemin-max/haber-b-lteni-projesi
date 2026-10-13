@@ -136,8 +136,8 @@ _GTTS_LANG_OVERRIDES = {"zh": "zh-CN", "he": "iw"}
 # (~85 kelime/dk). Dogal konusma hizi ~130 kelime/dk'dir; cok yavas
 # (~85) da cok hizli (~155) da dogal degildir. Bu yuzden uretilen dosya
 # olculup hedef kelime hizina ulasacak atempo carpaniyla hizlandirilir.
-GTTS_BASE_SPEEDUP = 1.5  # dogal hiz carpani: 85 x 1.5 ~ 128 kelime/dk
-GTTS_TARGET_WPM = 130.0  # normal konusma hizi (kelime/dk)
+GTTS_BASE_SPEEDUP = 1.35  # daha doğal tempo
+GTTS_TARGET_WPM = 115.0  # tüm spikerler için doğal konuşma hızı
 
 
 def _parse_rate_percent(rate: str) -> float:
