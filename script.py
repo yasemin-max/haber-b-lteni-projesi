@@ -539,7 +539,7 @@ def _get_main_anchor() -> Anchor | None:
 
 
 # Bu ulkeler icin ayri spiker olusturulmaz; haberleri ana spiker sunar.
-COUNTRIES_WITHOUT_DEDICATED_ANCHOR = {"IL"}
+COUNTRIES_WITHOUT_DEDICATED_ANCHOR = set()
 
 
 def _get_anchor_for_country(country_code: str, main_anchor: Anchor) -> Anchor:
