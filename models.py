@@ -295,7 +295,7 @@ class PlayoutItem(models.Model):
     """Bultendeki TEK bir sesli/gorseli parca.
 
     Cesitleri:
-      opening   -> "Merhaba, ben Lee Joung..."
+      opening   -> "Merhaba, ben Türkiye Spikeri..."
       transition-> "Simdi ekonomi haberleri"
       story     -> bir haberin okunusu
       breaking  -> son dakika manşeti

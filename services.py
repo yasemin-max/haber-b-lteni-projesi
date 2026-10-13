@@ -338,18 +338,35 @@ def _extract_publisher(title: str) -> str:
     return ""
 
 
-def translate_text(text: str, source_lang: str = "en") -> str:
-    """Metni Turkceye cevirir; ceviri modeli hazir degilse orijinali dondurur."""
+def translate_text(
+    text: str,
+    source_lang: str = "en",
+    target_lang: str = "tr",
+) -> str:
+    """Metni hedef dile cevirir.
+
+    Varsayilan: yabanci metni Turkceye cevirir (target_lang="tr").
+    Ulke spikerleri kendi dillerinde konusacagi icin target_lang ile
+    ornegin Turkce bir ozeti Almancaya cevirebiliriz.
+
+    Ceviri yapilamazsa orijinal metin OLDUGU GIBI doner ve onbellege
+    YAZILMAZ; boylece sonraki denemede tekrar cevrilir.
+    """
     if not text or len(text.strip()) < 3:
         return text
 
-    if source_lang == "tr":
+    if source_lang == target_lang:
         return text
 
     try:
-        text_hash = Translation.make_hash(text)
+        cache_key = f"{source_lang}>{target_lang}\x00{text}"
+        text_hash = Translation.make_hash(cache_key)
         cached = Translation.objects.filter(source_hash=text_hash).first()
-        if cached:
+        if (
+            cached
+            and cached.target_text.strip()
+            and cached.target_text.strip() != text.strip()
+        ):
             logger.debug("Onbellekten dondu: %s", text[:40])
             return cached.target_text
 
@@ -357,13 +374,39 @@ def translate_text(text: str, source_lang: str = "en") -> str:
         translated_chunks = []
 
         for chunk in chunks:
-            translated = _call_mymemory(chunk, source_lang)
+            translated = _call_translator(chunk, source_lang, target_lang)
             if translated:
                 translated_chunks.append(translated)
 
         result = " ".join(translated_chunks).strip()
-        if not result or len(result) < 3:
-            logger.warning("Ceviri bos dondu, orijinal metin korunuyor")
+        if not result or len(result) < 3 or result == text.strip():
+            logger.warning("Ceviri yapilamadi, orijinal metin korunuyor")
+            # Try intermediate translation for problematic pairs (e.g. zh->tr)
+            try:
+                if target_lang == "tr" and source_lang not in ("tr",):
+                    # if looks like CJK or translation returned same content
+                    has_cjk = any(0x4E00 <= ord(c) <= 0x9FFF for c in result or text)
+                    if has_cjk or (result == text.strip()):
+                        via_en = _call_translator(chunk if 'chunk' in locals() else text, source_lang, "en") if False else None  # avoid
+                        # easier: translate whole text via en
+                        via_en = _call_translator(text, source_lang, "en")
+                        if via_en:
+                            via_tr = _call_translator(via_en, "en", "tr")
+                            if via_tr and via_tr != via_en:
+                                result = via_tr
+                                Translation.objects.update_or_create(
+                                    source_hash=text_hash,
+                                    defaults={
+                                        "source_text": text,
+                                        "target_text": result,
+                                        "source_lang": source_lang,
+                                        "target_lang": target_lang,
+                                        "quality": 95.0,
+                                    },
+                                )
+                                return result
+            except Exception:
+                pass
             return text
 
         Translation.objects.update_or_create(
@@ -372,7 +415,7 @@ def translate_text(text: str, source_lang: str = "en") -> str:
                 "source_text": text,
                 "target_text": result,
                 "source_lang": source_lang,
-                "target_lang": "tr",
+                "target_lang": target_lang,
                 "quality": 100.0,
             },
         )
@@ -381,64 +424,156 @@ def translate_text(text: str, source_lang: str = "en") -> str:
         logger.warning("Ceviri modeli mevcut degil; orijinal metin korunuyor")
         return text
 
-def _call_mymemory(text: str, source_lang: str) -> str:
-    """MyMemory API'sinden tek chunk cevirisini ceker.
+def _call_translator(text: str, source_lang: str, target_lang: str = "tr") -> str:
+    """Tek metin parcasini hedef dile cevirir.
 
-    MyMemory ucretsizdir ve anahtar zorunlu degildir. Kayitli kullanici
-    e-posta adresi (MYMEMORY_EMAIL) varsa de=... parametresine eklenir.
-    Hata durumunda orijinal metin donulur; uygulamanin akisi bozulmaz.
+    Saglayici sirasi (ilk basarili olan kazanir):
+      1. Google ucretsiz ucnokta  -> hizli, anahtarsiz, guvenilir
+      2. MyMemory                 -> ucretsiz ama sik 429 verir
+      3. LibreTranslate           -> istege bagli (TRANSLATION_PROVIDER)
+
+    Ceviri yapilamazsa BOS STRING ("") doner. Cagiran taraf bunu
+    "ceviri yok" sayip onbellege YAZMAZ; boylece sonraki denemede
+    tekrar denenir.
     """
     if not text or not text.strip():
         return ""
 
-    provider = getattr(settings, "TRANSLATION_PROVIDER", "mymemory").lower()
-    params = {"q": text, "langpair": f"{source_lang}|tr"}
+    translated = _try_google(text, source_lang, target_lang)
+    if translated:
+        return translated
 
+    provider = getattr(settings, "TRANSLATION_PROVIDER", "mymemory").lower()
+    if provider == "libretranslate":
+        translated = _try_libretranslate(text, source_lang, target_lang)
+        if translated:
+            return translated
+
+    return _try_mymemory(text, source_lang, target_lang)
+
+
+def _try_google(text: str, source_lang: str, target_lang: str = "tr") -> str:
+    """Google'in ucretsiz ceviri ucnoktasindan ceviri ceker.
+
+    Anahtar/kayit gerektirmez. Basarisiz olursa "" doner.
+    """
+    try:
+        with httpx.Client(timeout=20, follow_redirects=True) as client:
+            response = client.get(
+                "https://translate.googleapis.com/translate_a/single",
+                params={
+                    "client": "gtx",
+                    "sl": source_lang,
+                    "tl": target_lang,
+                    "dt": "t",
+                    "q": text,
+                },
+                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
+            )
+            response.raise_for_status()
+            # Try to decode as UTF-8 explicitly if needed
+            try:
+                data = response.json()
+            except Exception:
+                # force utf-8
+                data = response.content.decode('utf-8', errors='replace')
+                import json
+                data = json.loads(data)
+    except (httpx.HTTPError, ValueError, TypeError) as exc:
+        logger.warning("Google ceviri hatasi: %s", exc)
+        return ""
+
+    try:
+        translated = "".join(
+            segment[0] for segment in data[0] if segment and segment[0]
+        ).strip()
+    except (TypeError, IndexError, KeyError):
+        return ""
+
+    return translated
+
+
+def _try_mymemory(text: str, source_lang: str, target_lang: str = "tr") -> str:
+    """MyMemory ucretsiz cevirisi (anahtar zorunlu degil). Basarisizsa ""."""
+    params = {"q": text, "langpair": f"{source_lang}|{target_lang}"}
     mymemory_email = getattr(settings, "MYMEMORY_EMAIL", "")
     if mymemory_email:
         params["de"] = mymemory_email
 
-    def _try_mymemory() -> str:
-        try:
-            with httpx.Client(timeout=20, follow_redirects=True) as client:
-                response = client.get("https://api.mymemory.translated.net/get", params=params)
-                response.raise_for_status()
-                data = response.json()
-        except (httpx.HTTPError, ValueError, TypeError) as exc:
-            logger.warning("MyMemory ceviri hatasi: %s", exc)
-            return text
+    try:
+        with httpx.Client(timeout=20, follow_redirects=True) as client:
+            response = client.get("https://api.mymemory.translated.net/get", params=params)
+            response.raise_for_status()
+            data = response.json()
+    except (httpx.HTTPError, ValueError, TypeError) as exc:
+        logger.warning("MyMemory ceviri hatasi: %s", exc)
+        return ""
 
-        if data.get("responseStatus") != 200:
-            return text
+    if data.get("responseStatus") != 200:
+        return ""
 
-        translated = data.get("responseData", {}).get("translatedText", "")
-        return translated if translated else text
+    return data.get("responseData", {}).get("translatedText", "") or ""
 
-    def _try_libretranslate() -> str:
-        endpoint = getattr(settings, "LIBRETRANSLATE_URL", "https://libretranslate.com/translate")
-        try:
-            with httpx.Client(timeout=20, follow_redirects=True) as client:
-                payload = {"q": text, "source": source_lang, "target": "tr", "format": "text"}
-                api_key = getattr(settings, "LIBRETRANSLATE_API_KEY", "")
-                if api_key:
-                    payload["api_key"] = api_key
-                response = client.post(endpoint, json=payload, timeout=20)
-                response.raise_for_status()
-                data = response.json()
-        except (httpx.HTTPError, ValueError, TypeError) as exc:
-            logger.warning("LibreTranslate ceviri hatasi: %s", exc)
-            return text
 
-        translated = data.get("translatedText") or data.get("translation") or data.get("data", {}).get("translatedText")
-        return translated if translated else text
+def _try_libretranslate(text: str, source_lang: str, target_lang: str = "tr") -> str:
+    """LibreTranslate cevirisi (istege bagli). Basarisizsa ""."""
+    endpoint = getattr(settings, "LIBRETRANSLATE_URL", "https://libretranslate.com/translate")
+    try:
+        with httpx.Client(timeout=20, follow_redirects=True) as client:
+            payload = {
+                "q": text,
+                "source": source_lang,
+                "target": target_lang,
+                "format": "text",
+            }
+            api_key = getattr(settings, "LIBRETRANSLATE_API_KEY", "")
+            if api_key:
+                payload["api_key"] = api_key
+            response = client.post(endpoint, json=payload, timeout=20)
+            response.raise_for_status()
+            data = response.json()
+    except (httpx.HTTPError, ValueError, TypeError) as exc:
+        logger.warning("LibreTranslate ceviri hatasi: %s", exc)
+        return ""
 
-    if provider == "libretranslate":
-        translated = _try_libretranslate()
-        if translated != text:
-            return translated
-        return _try_mymemory()
+    translated = (
+        data.get("translatedText")
+        or data.get("translation")
+        or data.get("data", {}).get("translatedText")
+    )
+    return translated if translated else ""
 
-    return _try_mymemory()
+
+_TURKISH_CHARS = set("çğıİöşüÇĞÖŞÜ")
+_TURKISH_STOPWORDS = {
+    "ve", "bir", "bu", "için", "ile", "olarak", "sonra", "daha", "de", "da",
+    "mi", "mı", "ki", "ya", "veya", "ama", "ancak", "çok", "türkiye", "yeni",
+    "oldu", "dedi", "yıl", "gün", "haber", "karşı", "göre", "kadar", "en",
+}
+
+
+def is_likely_turkish(text: str) -> bool:
+    """Metnin buyuk olasilikla Turkce olup olmadigini tahmin eder.
+
+    Ceviri cagirmadan once gereksiz istegi onlemek icin: Turkce'ye ozgu
+    harf varsa ya da Turkce yaygin kelimelerin orani yeterince yuksekse
+    metin "zaten Turkce" kabul edilir.
+    """
+    if not text or not text.strip():
+        return True
+    if any(ch in _TURKISH_CHARS for ch in text):
+        return True
+
+    words = [
+        word.strip(".,!?;:\"'()[]{}").lower()
+        for word in text.split()
+    ]
+    words = [word for word in words if word]
+    if len(words) < 4:
+        return True
+
+    hits = sum(1 for word in words if word in _TURKISH_STOPWORDS)
+    return (hits / len(words)) >= 0.12
 
 
 def _chunk_text(text: str, max_chars: int) -> list[str]:
@@ -585,7 +720,7 @@ def ingest_source(source: Source, limit: int = 40, is_breaking: bool = False) ->
                     country_code=country,
                     published_at=published,
                     language="tr",
-                    is_breaking=is_breaking or _is_recent(published, hours=2),
+                    is_breaking=is_breaking,
                 )
                 new_articles_created += 1
             except Exception:

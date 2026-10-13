@@ -3,7 +3,7 @@
 {% block content %}
 <h1>{{ playout.title }}</h1>
 <div class="sub">
-  {{ playout.item_count }} kalem · {{ playout.duration_display }} ·
+  {{ playout.item_count }} kalem ·
   {{ playout.categories_used }} · {{ playout.created_at|date:"d.m.Y H:i" }}
   {% if playout.status == 'ready' %}<span class="badge ok">Hazır</span>
   {% elif playout.status == 'error' %}<span class="badge err">Hata</span>
@@ -50,8 +50,7 @@
 
     <ul class="rundown">
       {% for it in items %}
-        {# `it.kind` degerine gore sinf veriyoruz: gecis/intro/outro
-           farkli renklendirilir, operator icin hizli okunur. #}
+        {% comment %}it.kind degerine gore sinif: gecis/intro/outro farkli renklendirilir.{% endcomment %}
         <li class="{% if it.kind == 'transition' %}trans{% elif it.kind == 'intro' %}intro{% elif it.kind == 'outro' %}outro{% endif %}">
           <div class="no">{{ it.order }}</div>
           <div>
@@ -68,7 +67,6 @@
               </video>
             {% endif %}
           </div>
-          <div class="dur">{{ it.duration_seconds|floatformat:1 }} sn</div>
         </li>
       {% empty %}
         <li class="empty">Bu bültenin içeriği yok.</li>

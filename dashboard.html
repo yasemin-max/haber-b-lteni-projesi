@@ -78,14 +78,14 @@
       <h2>Spikerler</h2>
       <div class="anchors">
         {% for a in anchors %}
-          <div class="anchor {% if a.is_main %}main{% endif %}">
+          <a class="anchor {% if a.is_main %}main{% endif %}" href="{% url 'studio:anchor_detail' a.pk %}">
             {% if a.image_path %}
               <img src="/media/{{ a.image_path }}" alt="{{ a.name }}">
             {% endif %}
             <div class="nm">{{ a.name }}</div>
             <div class="cc">{{ a.country_name }}</div>
             {% if a.is_main %}<span class="badge cat">ANA</span>{% endif %}
-          </div>
+          </a>
         {% empty %}
           <div class="empty">
             Spiker yok. <code>manage.py build_anchor --main</code> çalıştır.

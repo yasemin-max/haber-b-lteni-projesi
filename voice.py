@@ -17,8 +17,14 @@ async def speak(
     rate: str = "+0%",
     output_mp3: str | Path | None = None,
     output_srt: str | Path | None = None,
+    subtitle_text: str | None = None,
 ) -> dict:
-    "Metni seslendirir. Sozluk dondurur."
+    """Metni seslendirir. Sozluk dondurur.
+
+    subtitle_text: Seslendirilen metin yerel dilde olsa bile ekranda
+    gorunecek ALTYAZI (orn. Turkce). Verilirse SRT bu metinden uretilir
+    ve zamanlama sesin toplam suresine gore oransal dagitilir.
+    """
     result = {"ok": False, "error": "", "duration": 0.0, "word_timings": []}
     if not text or not text.strip():
         result["error"] = "Bos metin"
@@ -57,6 +63,11 @@ async def speak(
             continue
         except Exception as exc:  # noqa: BLE001
             last_error = f"{type(exc).__name__}: {exc}"
+            if type(exc).__name__ == "WSServerHandshakeError" or getattr(exc, "status", None) == 403:
+                logger.warning(
+                    "edge-tts handshake/403 (bolge/DRM engeli). gTTS yedegine geciliyor."
+                )
+                break
             logger.exception("Seslendirme hatasi (deneme %d/5)", attempt)
             await asyncio.sleep(1.5 * attempt)
             continue
@@ -65,8 +76,11 @@ async def speak(
         last_error = "Ses dosyasi bos dondu"
         await asyncio.sleep(1.5 * attempt)
     else:
-        result["error"] = f"{last_error} (5 deneme)"
-        return result
+        logger.warning("edge-tts basarisiz (%s). gTTS yedegi deneniyor.", last_error)
+        return _speak_gtts(text, voice, output_mp3, output_srt, subtitle_text, rate, last_error)
+
+    if not audio_bytes:
+        return _speak_gtts(text, voice, output_mp3, output_srt, subtitle_text, rate, last_error)
 
 
 
@@ -96,7 +110,11 @@ async def speak(
             duration = measured_duration
 
     if output_srt:
-        srt_text = build_srt(word_timings, text=text, fallback_duration=duration)
+        subtitle_source = (subtitle_text or "").strip()
+        if subtitle_source and subtitle_source != text.strip():
+            srt_text = build_srt_for_subtitle(subtitle_source, duration)
+        else:
+            srt_text = build_srt(word_timings, text=text, fallback_duration=duration)
         output_srt.parent.mkdir(parents=True, exist_ok=True)
         output_srt.write_text(srt_text, encoding="utf-8")
 
@@ -109,6 +127,134 @@ async def speak(
             "word_timings": word_timings,
         }
     )
+    return result
+
+
+_GTTS_LANG_OVERRIDES = {"zh": "zh-CN", "he": "iw"}
+
+# gTTS, edge-tts'in "+0%" hizindan dogal olarak daha yavas konusur
+# (~85 kelime/dk). Dogal konusma hizi ~130 kelime/dk'dir; cok yavas
+# (~85) da cok hizli (~155) da dogal degildir. Bu yuzden uretilen dosya
+# olculup hedef kelime hizina ulasacak atempo carpaniyla hizlandirilir.
+GTTS_BASE_SPEEDUP = 1.5  # dogal hiz carpani: 85 x 1.5 ~ 128 kelime/dk
+GTTS_TARGET_WPM = 130.0  # normal konusma hizi (kelime/dk)
+
+
+def _parse_rate_percent(rate: str) -> float:
+    """Edge hiz degerini ('+10%', '-5%', '+0%') yuzde sayisina cevirir."""
+    if not rate:
+        return 0.0
+    match = re.search(r"[-+]?\d+", str(rate))
+    return float(match.group(0)) if match else 0.0
+
+
+def _speak_chained_atempo(path: Path, factor: float) -> None:
+    """Dosyaya atempo uygular; >2.0 carpanlarda zincir kurar.
+
+    Neden zincir? FFmpeg'in atempo'su tek basina >2.0 kabul etmez
+    (docs: 0.5-2.0). 1.8 hedef icin tek atempo yeterlidir, ancak
+    guvenlik icin carpani 2.0'lik parcalara bolup zincirliyoruz
+    (2.0 x 2.0 = 4.0'a kadar cikabilir).
+    """
+    if factor <= 0.001:
+        return
+    parts = []
+    remaining = factor
+    while remaining > 1.001:
+        step = min(2.0, remaining)
+        parts.append(f"atempo={step:.4f}")
+        remaining /= step
+    if not parts:
+        return
+    temp = path.with_suffix(".spd.mp3")
+    cmd = [
+        "ffmpeg", "-y", "-i", str(path),
+        "-filter:a", ",".join(parts),
+        "-vn", str(temp),
+    ]
+    try:
+        subprocess.run(cmd, capture_output=True, text=True, timeout=90, check=True)
+        temp.replace(path)
+    except (OSError, subprocess.SubprocessError) as exc:
+        logger.warning("Ses hizlandirilamadi (%s): %s", path, exc)
+
+
+def _speedup_mp3(path: Path, factor: float) -> float:
+    """Ses dosyasini atempo ile hizlandirir ve yeni suresini dondurur.
+
+    gTTS dogal olarak yavas konustugu icin normal haber okuma hizini
+    yakalamak uzere ffmpeg atempo filtresi uygulanir.
+    """
+    if path.exists():
+        _speak_chained_atempo(path, factor)
+    return probe_duration(path)
+
+
+def _gtts_lang_from_voice(voice: str) -> str:
+    """Edge ses adindan gTTS dil kodunu uretir (or. tr-TR-EmelNeural -> tr)."""
+    primary = (voice or "tr").split("-")[0].lower() or "tr"
+    return _GTTS_LANG_OVERRIDES.get(primary, primary)
+
+
+def _speak_gtts(text, voice, output_mp3, output_srt, subtitle_text, rate="", last_error=""):
+    """edge-tts bolgesel olarak engellendiginde (403) yedek seslendirme.
+
+    Microsoft, Edge ses servisini api.msedgeservices.com'a tasidi; eski
+    uc nokta bazi bolgelerde 403 veriyor (edge-tts issue #490). Bu fonksiyon
+    Google TTS (gTTS) ile ses uretir. Kelime zamanlamasi olmadigi icin
+    altyazi, ses suresine oransal olarak dagitilir.
+    """
+    result = {"ok": False, "error": "", "duration": 0.0, "word_timings": []}
+    try:
+        from gtts import gTTS
+    except Exception as exc:  # noqa: BLE001
+        result["error"] = f"gTTS bulunamadi ({last_error}): {exc}"
+        return result
+    lang = _gtts_lang_from_voice(voice)
+    try:
+        tts = gTTS(text=text, lang=lang)
+        if output_mp3:
+            output_mp3.parent.mkdir(parents=True, exist_ok=True)
+            tts.save(str(output_mp3))
+    except Exception as exc:  # noqa: BLE001
+        result["error"] = f"gTTS hatasi ({lang}): {exc}"
+        logger.exception("gTTS seslendirme hatasi")
+        return result
+
+    # Normal haber okuma hizi: gTTS dogal olarak yavas (~85 k/dk). once
+    # uretilen ses olculur, hedef kelime hizina gore atempo carpani
+    # hesaplanir (sure degistigi icin altyazi yeni sureye gore kurulur).
+    if output_mp3:
+        base_duration = probe_duration(output_mp3)
+        word_count = max(1, len(text.split()))
+        base_wpm = word_count / (base_duration / 60.0) if base_duration > 0 else 0.0
+        if base_wpm > 0 and base_wpm < GTTS_TARGET_WPM:
+            factor = min(2.5, GTTS_TARGET_WPM / base_wpm)
+        else:
+            factor = 1.8
+        _speedup_mp3(Path(output_mp3), factor)
+
+    duration = probe_duration(output_mp3) if output_mp3 else 0.0
+    if output_mp3 and duration <= 0:
+        result["error"] = "gTTS sesi olculemedi"
+        return result
+
+    if output_srt:
+        subtitle_source = (subtitle_text or "").strip() or text
+        srt_text = build_srt_for_subtitle(subtitle_source, duration)
+        output_srt.parent.mkdir(parents=True, exist_ok=True)
+        output_srt.write_text(srt_text, encoding="utf-8")
+
+    result.update(
+        {
+            "ok": True,
+            "audio": str(output_mp3) if output_mp3 else "",
+            "srt": str(output_srt) if output_srt else "",
+            "duration": duration,
+            "word_timings": [],
+        }
+    )
+    logger.info("gTTS yedegi kullanildi (%s, %.1f sn)", lang, duration)
     return result
 
 
@@ -259,6 +405,69 @@ def _group_words(word_timings: list[dict]) -> list[dict]:
 
     if current:
         blocks.append({"text": " ".join(w["word"] for w in current), "words": current})
+
+    return blocks
+
+
+def build_srt_for_subtitle(subtitle_text: str, total_duration: float) -> str:
+    """Yerel dildeki ses ILE eslesecek Turkce altyazi uretir.
+
+    Ses ile altyazi farkli dillerde oldugu icin kelime zamanlamasi
+    eslesmez. Bu yuzden altyaziyi okunabilir bloklara bolup, toplam ses
+    suresini blok uzunluklarina gore ORANSAL dagitiyoruz. Boylece altyazi
+    sesle kabaca ayni anda ilerler.
+    """
+    blocks = _split_text_blocks(subtitle_text)
+    if not blocks:
+        return ""
+
+    total_duration = max(total_duration, 0.4)
+    total_chars = sum(len(block) for block in blocks) or 1
+    lines: list[str] = []
+    cursor = 0.0
+
+    for index, block in enumerate(blocks, start=1):
+        share = total_duration * (len(block) / total_chars)
+        start = cursor
+        end = cursor + share
+        if end - start < 0.4:
+            end = start + 0.4
+        cursor = end
+        lines.append(str(index))
+        lines.append(f"{_timestamp(start)} --> {_timestamp(end)}")
+        lines.append(block)
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+def _split_text_blocks(text: str) -> list[str]:
+    """Metni okunabilir altyazi bloklarina boler (zamanlama olmadan).
+
+    Kural build_srt ile ayni: satirda en fazla 8 kelime, en fazla 42
+    karakter ve cumle sonunda yeni blok.
+    """
+    words = text.split()
+    blocks: list[str] = []
+    current: list[str] = []
+    chars = 0
+
+    for word in words:
+        would_be = chars + len(word) + 1
+        too_many_words = len(current) >= 8
+        too_long = would_be > 42
+        ends_sentence = current and current[-1].endswith((".", "!", "?"))
+
+        if current and (too_many_words or too_long or ends_sentence):
+            blocks.append(" ".join(current))
+            current = []
+            chars = 0
+
+        current.append(word)
+        chars += len(word) + 1
+
+    if current:
+        blocks.append(" ".join(current))
 
     return blocks
 

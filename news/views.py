@@ -213,17 +213,44 @@ def live(request):
     )
 
 
+def anchor_detail(request, pk: int):
+    anchor = get_object_or_404(Anchor, pk=pk)
+    return render(
+        request,
+        "anchor_detail.html",
+        {
+            "on_air": Playout.objects.filter(status=Playout.ON_AIR).first(),
+            "anchor": anchor,
+        },
+    )
+
+
 def live_playlist(request):
     media_root = Path(settings.MEDIA_ROOT).resolve()
     items = []
-    playouts = Playout.objects.filter(
+    spiker_pk = request.GET.get("spiker")
+    playout_qs = Playout.objects.filter(
         status=Playout.READY,
-    ).exclude(manifest_path="").order_by("-created_at", "-pk")[:1]
+    ).exclude(manifest_path="").order_by("-created_at", "-pk")
+    if spiker_pk:
+        try:
+            spiker_pk = int(spiker_pk)
+        except (TypeError, ValueError):
+            spiker_pk = None
+        if spiker_pk:
+            playouts = playout_qs[:3]
+        else:
+            playouts = playout_qs[:1]
+    else:
+        playouts = playout_qs[:1]
     seen_story_titles = set()
 
     for playout in playouts:
         playout_dir = media_root / "bultenler" / f"playout_{playout.pk}"
-        for item in playout.items.select_related("article", "anchor").order_by("order"):
+        item_qs = playout.items.select_related("article", "anchor").order_by("order")
+        if spiker_pk:
+            item_qs = item_qs.filter(anchor_id=spiker_pk)
+        for item in item_qs:
             if item.article:
                 if item.article.title_key in seen_story_titles:
                     continue

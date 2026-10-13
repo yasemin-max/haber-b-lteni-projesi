@@ -81,6 +81,7 @@ def build_anchor_shot(
     ticker="",
     background=None,
     headline_text="",
+    credit="",
 ) -> dict:
     """Tek bulten kaleminin videosunu uretir.
 
@@ -132,14 +133,20 @@ def build_anchor_shot(
 
     steps = []
 
+    # Spiker paneli: arka plan varsa ekranin sag yarisinda yan yana durur,
+    # yoksa tam ekrandir. Paneli KENDI genisligi kadar olceklendirip
+    # oynatiyoruz; aksi halde tam genislikte olceklendirilen spiker ekran
+    # disina tasip YARIM/kesik gorunuyordu.
+    anchor_width = max(2, int(width * 0.5)) if has_background else width
+
     steps.append(
         "[0:v]"
-        "scale={w}:{h}:force_original_aspect_ratio=increase,"
-        "crop={w}:{h},"
+        "scale={aw}:{h}:force_original_aspect_ratio=increase,"
+        "crop={aw}:{h},"
         "zoompan=z='min(zoom+0.0009,1.15)':d={n}:"
         "x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':"
-        "fps={fps}:s={w}x{h},setsar=1[anchor]".format(
-            w=width, h=height, n=frames, fps=fps
+        "fps={fps}:s={aw}x{h},setsar=1[anchor]".format(
+            aw=anchor_width, h=height, n=frames, fps=fps
         )
     )
 
@@ -152,7 +159,9 @@ def build_anchor_shot(
                 w=width, h=height
             )
         )
-        steps.append("[bg][anchor]overlay=x='W*0.55':y='(H-h)/2'[base]")
+        steps.append(
+            "[bg][anchor]overlay=x='W-{aw}':y='(H-h)/2'[base]".format(aw=anchor_width)
+        )
     else:
         steps.append("[anchor]null[base]")
 
@@ -164,7 +173,7 @@ def build_anchor_shot(
             draws.append(
                 _drawtext(
                     text=ticker_text,
-                    x="w-text_w-(t*55)",
+                    x="w-mod(t*55,w+text_w)",
                     y="28",
                     size=27,
                     color="white",
@@ -185,7 +194,7 @@ def build_anchor_shot(
                     color="white",
                     boxcolor="black@0.72",
                     boxborderw=16,
-                    enable="between(t,0.3,8)",
+                    enable="gte(t,0.3)",
                     bold=True,
                 )
             )
@@ -197,12 +206,12 @@ def build_anchor_shot(
                 _drawtext(
                     text=lower_text,
                     x="44",
-                    y="h-170",
+                    y="h-300",
                     size=44,
                     color="white",
                     boxcolor="0xB91C1C@0.92",
                     boxborderw=14,
-                    enable="between(t,0.2,5.5)",
+                    enable="gte(t,0.2)",
                     bold=True,
                 )
             )
@@ -213,12 +222,30 @@ def build_anchor_shot(
                 _drawtext(
                     text=lower_sub_text,
                     x="46",
-                    y="h-112",
+                    y="h-240",
                     size=26,
                     color="0xFFE4E4",
                     boxcolor="0xB91C1C@0.92",
                     boxborderw=14,
-                    enable="between(t,0.2,5.5)",
+                    enable="gte(t,0.2)",
+                )
+            )
+
+    if credit:
+        # Kaynak adi sesli OKUNMAZ; haberin sonunda ekranda gosterilir.
+        credit_text = _sanitize_text(credit, max_len=60)
+        if credit_text:
+            credit_start = max(0.0, duration - 4.0)
+            draws.append(
+                _drawtext(
+                    text=credit_text,
+                    x="44",
+                    y="h-70",
+                    size=24,
+                    color="white",
+                    boxcolor="black@0.72",
+                    boxborderw=12,
+                    enable="between(t,{:.1f},{:.1f})".format(credit_start, duration),
                 )
             )
 
@@ -309,9 +336,10 @@ def _drawtext(
 
     parts = [
         "drawtext=fontfile='{font}'".format(font=font),
+        "expansion=none",
         "text='{text}'".format(text=safe),
-        "x={x}".format(x=x),
-        "y={y}".format(y=y),
+        "x='{x}'".format(x=x),
+        "y='{y}'".format(y=y),
         "fontsize={size}".format(size=size),
         "fontcolor={color}".format(color=color),
     ]

@@ -131,7 +131,8 @@ a:hover { text-decoration: underline; }
 
 /* ---------- spiker kartlari ---------- */
 .anchors { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 14px; }
-.anchor { background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; text-align: center; padding-bottom: 12px; }
+.anchor { background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; text-align: center; padding-bottom: 12px; display: block; text-decoration: none; color: inherit; }
+.anchor:hover { border-color: var(--blue); }
 .anchor img { width: 100%; aspect-ratio: 2/3; object-fit: cover; display: block; }
 .anchor .nm { font-weight: 700; font-size: 13px; margin-top: 9px; }
 .anchor .cc { color: var(--muted); font-size: 11px; }

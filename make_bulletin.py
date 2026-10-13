@@ -128,6 +128,18 @@ class Command(BaseCommand):
             raise CommandError(str(exc)) from exc
 
         Playout, PlayoutItem, anchor_service, script_service, video_service, voice_service = _load_runtime_modules()
+
+        try:
+            from services import translate_text
+        except Exception:  # pragma: no cover
+            translate_text = None
+
+        try:
+            from prompts import language_for_country
+        except Exception:  # pragma: no cover
+            def language_for_country(country_code: str) -> str:
+                return "tr"
+
         config = getattr(settings, "HABER_AJANSI", {})
         if not config:
             raise CommandError("HABER_AJANSI ayarlari bulunamadi. settings.py kontrol et.")
@@ -233,16 +245,51 @@ class Command(BaseCommand):
             duration = float(item.duration_seconds or 0.0)
 
             if not options["video_only"]:
+                spoken_text = item.text
+                subtitle_text_tr = item.text
+                speaker_lang = language_for_country(speaker.country_code)
+                if speaker_lang != "tr" and translate_text:
+                    translated_spoken = translate_text(item.text, "tr", speaker_lang)
+                    if translated_spoken and translated_spoken.strip():
+                        spoken_text = translated_spoken
+                    translated_sub = translate_text(item.text, "tr", "tr")
+                    if translated_sub and translated_sub.strip():
+                        subtitle_text_tr = translated_sub
+                else:
+                    subtitle_text_tr = item.text
+
                 speech = asyncio.run(
                     voice_service.speak(
-                        item.text,
+                        spoken_text,
                         voice=speaker.voice,
                         output_mp3=mp3,
                         output_srt=srt,
                         pitch=getattr(speaker, "voice_pitch", "+0Hz"),
                         rate=getattr(speaker, "voice_rate", "+0%"),
+                        subtitle_text=subtitle_text_tr,
                     )
                 )
+
+                if not speech.get("ok") and spoken_text != item.text:
+                    self.stdout.write(
+                        self.style.WARNING("  yerel ses basarisiz, Turkce'ye donuluyor")
+                    )
+                    main_anchor = getattr(script_service, "_get_main_anchor", lambda: None)()
+                    fallback_voice = (
+                        getattr(main_anchor, "voice", "tr-TR-EmelNeural")
+                        if main_anchor
+                        else "tr-TR-EmelNeural"
+                    )
+                    speech = asyncio.run(
+                        voice_service.speak(
+                            item.text,
+                            voice=fallback_voice,
+                            output_mp3=mp3,
+                            output_srt=srt,
+                            subtitle_text=subtitle_text_tr,
+                        )
+                    )
+
                 if not speech.get("ok"):
                     item.audio_error = speech.get("error") or "Ses uretilemedi"
                     item.save(update_fields=["audio_error"])
@@ -287,6 +334,7 @@ class Command(BaseCommand):
                 ticker=item.ticker_text or f"{config['kanal_adi']}  •  CANLI YAYIN",
                 headline_text=(item.title_text or item.text)[:70],
                 background=background,
+                credit=item.source_text or "",
             )
 
             if not shot.get("ok"):

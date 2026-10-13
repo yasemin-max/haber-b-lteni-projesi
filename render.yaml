@@ -47,7 +47,7 @@ services:
       - key: ENABLE_AUTOMATION
         value: "true"
       - key: ANA_SPIKER
-        value: "Lee Joung"
+        value: "Türkiye Spikeri"
       - key: DJANGO_SUPERUSER_USERNAME
         sync: false
       - key: DJANGO_SUPERUSER_EMAIL

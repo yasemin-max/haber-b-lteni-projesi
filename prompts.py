@@ -67,9 +67,9 @@ BACKGROUND_STYLE = (
     "darkened for text overlay, no text, no people, no logos"
 )
 OPENING_TEMPLATE = (
-    "{kanal} kesintisiz canlı yayınındasınız. Ben {spiker}. "
-    "Saat {saat} itibarıyla gündemdeki gelişmeleri aktarıyoruz. "
-    "Yeni haberler geldikçe yayın akışımız sürüyor."
+    "Ben Gündem Haber'den {spiker}. "
+    "Saat {saat} itibarıyla Gündem Haber başlıyor. "
+    "Gündemden öne çıkan gelişmelerle sizlerleyiz."
 )
 _NUMBER_WORDS = {
     1: "bir",
@@ -94,10 +94,7 @@ def build_headline_transition(count: int) -> str:
 
 CATEGORY_TRANSITION = "Şimdi sizlerle {kategori} haberleri."
 COUNTRY_TRANSITION = "Şimdi {ulke} bir bakış."
-BREAKING_LEAD = (
-    "Son dakika. {ulke} kaynaklardan gelen haberlere göre, {baslik}. "
-    "Detayları aktarıyorum."
-)
+BREAKING_LEAD = "Son dakika. {baslik}."
 STORY_LEAD = "{baslik}. {ozet}"
 CATEGORY_OUTRO = "{kategori} haberlerimizin sonuna geldik."
 TICKER_TEMPLATE = "SON DAKİKA  •  {baslik}"
@@ -107,26 +104,57 @@ CONTINUITY_TEMPLATE = (
 )
 VOICE_MAIN = "tr-TR-EmelNeural"
 
+# Ulke kodu -> ceviri dili (ISO 639). Ulke spikeri kendi ulkesinin dilinde
+# konusur; altyazi ise Turkce kalir.
+COUNTRY_LANGUAGE = {
+    "TR": "tr", "US": "en", "GB": "en", "DE": "de", "FR": "fr", "RU": "ru",
+    "CN": "zh-CN", "JP": "ja", "IN": "hi", "BR": "pt", "IR": "fa", "SA": "ar",
+    "EG": "ar", "QA": "ar", "IT": "it", "KR": "ko", "UA": "uk", "NL": "nl",
+    "GR": "el", "SG": "en", "IL": "he",
+}
+
+# Ulke kodu -> (kadin sesi, erkek sesi). Edge TTS yerel sesleri.
+COUNTRY_VOICES = {
+    "TR": ("tr-TR-EmelNeural", "tr-TR-AhmetNeural"),
+    "US": ("en-US-AriaNeural", "en-US-GuyNeural"),
+    "GB": ("en-GB-SoniaNeural", "en-GB-RyanNeural"),
+    "DE": ("de-DE-KatjaNeural", "de-DE-ConradNeural"),
+    "FR": ("fr-FR-DeniseNeural", "fr-FR-HenriNeural"),
+    "RU": ("ru-RU-SvetlanaNeural", "ru-RU-DmitryNeural"),
+    "CN": ("zh-CN-XiaoxiaoNeural", "zh-CN-YunyangNeural"),
+    "JP": ("ja-JP-NanamiNeural", "ja-JP-KeitaNeural"),
+    "IN": ("hi-IN-SwaraNeural", "hi-IN-MadhurNeural"),
+    "BR": ("pt-BR-FranciscaNeural", "pt-BR-AntonioNeural"),
+    "IR": ("fa-IR-DilaraNeural", "fa-IR-FaridNeural"),
+    "SA": ("ar-SA-ZariyahNeural", "ar-SA-HamedNeural"),
+    "EG": ("ar-EG-SalmaNeural", "ar-EG-ShakirNeural"),
+    "QA": ("ar-QA-AmalNeural", "ar-QA-MoazNeural"),
+    "IT": ("it-IT-ElsaNeural", "it-IT-DiegoNeural"),
+    "KR": ("ko-KR-SunHiNeural", "ko-KR-InJoonNeural"),
+    "UA": ("uk-UA-PolinaNeural", "uk-UA-OstapNeural"),
+    "NL": ("nl-NL-ColetteNeural", "nl-NL-MaartenNeural"),
+    "GR": ("el-GR-AthinaNeural", "el-GR-NestorasNeural"),
+    "SG": ("en-SG-LunaNeural", "en-SG-WayneNeural"),
+    "IL": ("he-IL-HilaNeural", "he-IL-AvriNeural"),
+}
+
+
+def language_for_country(country_code: str) -> str:
+    """Ulke kodundan ceviri dili kodunu dondurur (varsayilan: tr)."""
+    return COUNTRY_LANGUAGE.get((country_code or "TR").upper(), "tr")
+
+
+def voice_for_country(country_code: str, gender: str = "female") -> str:
+    """Ulkenin yerel Edge TTS sesini dondurur."""
+    pair = COUNTRY_VOICES.get((country_code or "TR").upper(), COUNTRY_VOICES["TR"])
+    return pair[1] if (gender or "").lower() == "male" else pair[0]
+
+
+# Ulke kodu -> (yerel ses, perde, hiz). Yerel sesler zaten farkli dillerde
+# oldugu icin ayni tonu koruruz.
 VOICE_VARIANTS = {
-    "TR": ("tr-TR-EmelNeural", "+0Hz", "+0%"),
-    "KR": ("tr-TR-EmelNeural", "+3Hz", "-3%"),
-    "US": ("tr-TR-AhmetNeural", "-4Hz", "+2%"),
-    "GB": ("tr-TR-AhmetNeural", "-2Hz", "-2%"),
-    "DE": ("tr-TR-EmelNeural", "+2Hz", "-4%"),
-    "FR": ("tr-TR-EmelNeural", "+4Hz", "-6%"),
-    "RU": ("tr-TR-AhmetNeural", "-6Hz", "+4%"),
-    "CN": ("tr-TR-EmelNeural", "+1Hz", "-2%"),
-    "JP": ("tr-TR-EmelNeural", "+5Hz", "-8%"),
-    "IN": ("tr-TR-AhmetNeural", "-3Hz", "+0%"),
-    "BR": ("tr-TR-EmelNeural", "+2Hz", "-1%"),
-    "IR": ("tr-TR-AhmetNeural", "-5Hz", "+3%"),
-    "IL": ("tr-TR-AhmetNeural", "-3Hz", "+1%"),
-    "SA": ("tr-TR-AhmetNeural", "-5Hz", "-1%"),
-    "IT": ("tr-TR-EmelNeural", "+3Hz", "-2%"),
-    "GR": ("tr-TR-AhmetNeural", "-2Hz", "+1%"),
-    "NL": ("tr-TR-EmelNeural", "+2Hz", "-3%"),
-    "EG": ("tr-TR-AhmetNeural", "-4Hz", "+2%"),
-    "QA": ("tr-TR-AhmetNeural", "-4Hz", "-2%"),
+    code: (voice_for_country(code), "+0Hz", "+0%")
+    for code in COUNTRY_VOICES
 }
 BREAKING_HOURS = 1
 COUNTRY_HOURS = 12

@@ -225,7 +225,7 @@ class BulletinCompositionTests(TestCase):
         Anchor.objects.create(name="Test Spiker", is_main=True)
         Article.objects.create(
             title="Test haberi",
-            summary="Kısa haber özeti.",
+            summary="Deprem sonrası kurtarma çalışmaları sürüyor.",
             url="https://example.com/news",
             source=source,
             category=category,
@@ -244,7 +244,9 @@ class BulletinCompositionTests(TestCase):
         self.assertTrue(breaking_items, "Son dakika kalemi uretilmeli")
         self.assertEqual(breaking_items[0].article.title, "Test haberi")
         self.assertTrue(any(item.kind == PlayoutItem.CLOSING for item in items))
-        self.assertTrue(any("Kaynak: Test Kaynak" in item.text for item in items))
+        self.assertTrue(
+            any("Kaynak: Test Kaynak" in (item.source_text or "") for item in items)
+        )
 
     def test_bulletin_includes_every_unplayed_active_story_without_old_limits(self):
         category = Category.objects.create(name="Gundem", slug="gundem")

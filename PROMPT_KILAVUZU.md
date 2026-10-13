@@ -144,12 +144,14 @@ oluşturuldu:
 
 ```python
 OPENING_TEMPLATE = (
-    "Merhaba, ben {spiker}. Gündem haberin merkezinden sizlerle birlikteyiz. "
-    "Saat {saat} itibarıyla gündemin başındayız."
+    "Ben Gündem Haber'den {spiker}. "
+    "Saat {saat} itibarıyla Gündem Haber başlıyor. "
+    "Gündemden öne çıkan gelişmelerle sizlerleyiz."
 )
 ```
 
-Kanal adı ayarlardan gelir; bu metin açılış cümlesini tanımlar.
+Kanal adı ayarlardan gelir; bu metin açılış cümlesini tanımlar. Spiker
+saati verdikten sonra tek tek haberleri sunmaya başlar.
 
 ### `build_headline_transition()` — manşet sayısı
 

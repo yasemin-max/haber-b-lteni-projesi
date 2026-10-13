@@ -50,7 +50,7 @@ if not DEBUG and (
 ALLOWED_HOSTS = [
     host.strip()
     for host in os.environ.get(
-        "DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,0.0.0.0"
+        "DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,0.0.0.0,192.168.1.107"
     ).split(",")
     if host.strip()
 ]
@@ -85,6 +85,7 @@ elif DATABASE_URL.startswith("sqlite:///"):
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
             "NAME": str(sqlite_file),
+            "OPTIONS": {"timeout": 60},
         }
     }
 else:
@@ -163,7 +164,7 @@ SECURE_HSTS_PRELOAD = _env_bool("DJANGO_SECURE_HSTS_PRELOAD", False)
 
 HABER_AJANSI = {
     "kanal_adi": os.environ.get("KANAL_ADI", "HABER 24"),
-    "ana_spiker": os.environ.get("ANA_SPIKER", "Deniz Aksoy"),
+    "ana_spiker": os.environ.get("ANA_SPIKER", "Türkiye Spikeri"),
     "okuma_hizi": int(os.environ.get("OKUMA_HIZI", "150")),
     "min_haber_suresi": 20,
     "max_haber_suresi": 180,
