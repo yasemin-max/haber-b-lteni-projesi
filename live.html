@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}Kesintisiz Canlı Yayın · Ajans Paneli{% endblock %}
+{% block content %}
+<h1>Kesintisiz Canlı Yayın</h1>
+<div class="sub">Hazır bültenler art arda oynatılır; yeni yayın bölümleri sıraya otomatik eklenir.</div>
+
+<div class="panel live-panel">
+  <div class="live-heading">
+    <span class="onair"><i></i> YAYIN AKIŞI</span>
+    <span id="live-status" class="muted" role="status" aria-live="polite">Yayın akışı kontrol ediliyor…</span>
+  </div>
+  <video id="live-player" class="player live-player" controls autoplay muted playsinline>
+    Tarayıcınız video etiketini desteklemiyor.
+  </video>
+  <div class="live-controls">
+    <button id="enable-audio" type="button">Sesi aç ve canlı yayını başlat</button>
+    <span id="current-title" class="muted"></span>
+  </div>
+  <audio id="live-voiceover" preload="auto"></audio>
+</div>
+
+<script>
+(() => {
+  const playlistUrl = "{% url 'studio:live_playlist' %}";
+  const player = document.getElementById("live-player");
+  const voiceover = document.getElementById("live-voiceover");
+  const status = document.getElementById("live-status");
+  const currentTitle = document.getElementById("current-title");
+  const audioButton = document.getElementById("enable-audio");
+  const items = [];
+  const queuedIds = new Set();
+  let index = 0;
+  let waitingForVideos = false;
+  let audioEnabled = false;
+  let currentItem = null;
+  let usingFallback = false;
+
+  async function refreshPlaylist() {
+    try {
+      const response = await fetch(playlistUrl, {cache: "no-store"});
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      for (const item of data.items) {
+        if (!queuedIds.has(item.id)) {
+          queuedIds.add(item.id);
+          items.push(item);
+        }
+      }
+      if (items.length && waitingForVideos) playNext();
+      status.textContent = items.length
+        ? `${items.length} haber bölümü sırada`
+        : "İlk yayın bölümü hazırlanıyor; bu sayfa yeni videoları kontrol ediyor.";
+    } catch (error) {
+      status.textContent = `Yayın listesi alınamadı: ${error.message}`;
+    }
+  }
+
+  function playNext() {
+    if (!items.length) {
+      waitingForVideos = true;
+      return;
+    }
+    waitingForVideos = false;
+    if (index >= items.length) index = 0;
+    const item = items[index];
+    index += 1;
+    currentItem = item;
+    usingFallback = false;
+    voiceover.pause();
+    voiceover.removeAttribute("src");
+    player.loop = Boolean(item.source_video);
+    player.src = item.video_url;
+    currentTitle.textContent = item.title;
+    if (item.source_video) {
+      voiceover.src = item.voiceover_url;
+      if (audioEnabled) voiceover.play().catch(() => {
+        status.textContent = "Spiker sesi başlatılamadı; ses düğmesine basın.";
+      });
+    }
+    player.muted = item.source_video || !audioEnabled;
+    player.play().catch(() => {
+      status.textContent = "Oynatmayı başlatmak için canlı yayın düğmesine basın.";
+    });
+  }
+
+  player.addEventListener("ended", () => {
+    if (!currentItem || !currentItem.source_video || usingFallback) playNext();
+  });
+  player.addEventListener("error", () => {
+    if (currentItem && currentItem.source_video && currentItem.fallback_video_url && !usingFallback) {
+      usingFallback = true;
+      player.loop = false;
+      voiceover.pause();
+      player.src = currentItem.fallback_video_url;
+      player.muted = !audioEnabled;
+      player.play().catch(() => {
+        status.textContent = "Video oynatılamadı; sıradaki haber deneniyor.";
+        playNext();
+      });
+      return;
+    }
+    if (currentItem) {
+      status.textContent = "Bu video oynatılamadı; sıradaki haber deneniyor.";
+      playNext();
+    }
+  });
+  voiceover.addEventListener("ended", () => {
+    if (currentItem && currentItem.source_video && !usingFallback) playNext();
+  });
+  voiceover.addEventListener("error", () => {
+    if (currentItem && currentItem.source_video && currentItem.fallback_video_url && !usingFallback) {
+      usingFallback = true;
+      player.loop = false;
+      player.src = currentItem.fallback_video_url;
+      player.muted = !audioEnabled;
+      player.play().catch(() => {
+        status.textContent = "Spiker sesi ve video oynatılamadı; sıradaki haber deneniyor.";
+        playNext();
+      });
+    }
+  });
+  audioButton.addEventListener("click", () => {
+    audioEnabled = true;
+    audioButton.textContent = "Ses açık";
+    if (currentItem && currentItem.source_video && !usingFallback) {
+      voiceover.play().catch(() => {
+        status.textContent = "Spiker sesi başlatılamadı; lütfen tekrar basın.";
+      });
+    } else {
+      player.muted = false;
+      player.play().catch(() => {
+        status.textContent = "Video oynatılamadı; lütfen tekrar basın.";
+      });
+    }
+  });
+
+  refreshPlaylist().then(playNext);
+  window.setInterval(refreshPlaylist, 15000);
+})();
+</script>
+{% endblock %}

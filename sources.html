@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Kaynaklar · Ajans Paneli{% endblock %}
+{% block content %}
+<h1>Kaynaklar</h1>
+<div class="sub">Haberlerin çekildiği siteler. Bültende kaynak adı okunur.</div>
+
+<div class="panel">
+  <ul class="list">
+    {% for s in sources %}
+      <li>
+        {# Logo kutusu: kaynak adinin ilk harfi #}
+        <span class="src">{{ s.name|first|upper }}</span>
+        <div class="grow trunc">
+          <b>{{ s.name }}</b>
+          <div class="muted trunc">{{ s.url }}</div>
+        </div>
+        {% if s.is_active %}<span class="badge ok">Aktif</span>
+        {% else %}<span class="badge">Pasif</span>{% endif %}
+        <span class="num">{{ s.article_total }} haber</span>
+      </li>
+    {% empty %}
+      <li class="empty">Kaynak yok. <code>manage.py seed_sources</code></li>
+    {% endfor %}
+  </ul>
+</div>
+
+{% endblock %}

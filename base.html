@@ -1,0 +1,31 @@
+{% load static %}
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Ajans Paneli{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/agency.css' %}">
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="brand">HABER<span>•</span>AJANSI</div>
+
+    {% if on_air %}
+      <span class="onair"><i></i> CANLI YAYIN</span>
+    {% endif %}
+
+    <nav>
+      <a href="{% url 'studio:live' %}">Canlı Yayın</a>
+      <a href="{% url 'studio:dashboard' %}">Pano</a>
+      <a href="{% url 'studio:sources' %}">Kaynaklar</a>
+      <a href="/admin/">Yönetim</a>
+    </nav>
+  </div>
+
+  <div class="wrap">
+    {% block content %}{% endblock %}
+  </div>
+
+</body>
+</html>
