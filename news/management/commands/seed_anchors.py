@@ -84,19 +84,19 @@ class Command(BaseCommand):
             seed = COUNTRY_SEEDS.get(code, 42)
             is_main = code == "TR"
 
-            # Var olan gorsel dosyasi kendi seed'ini tasir; yuzu degistirmemek
-            # icin mevcut gorselin seed'ini koruruz (ornek: spikerler/tr_42.jpg).
-            if anchor.image_path:
-                match = re.search(r"_(\d+)\.[A-Za-z0-9]+$", anchor.image_path)
-                if match and (Path(settings.MEDIA_ROOT) / anchor.image_path).exists():
-                    seed = int(match.group(1))
-
             anchor = Anchor.objects.filter(country_code=code).order_by("-is_main", "pk").first()
             if anchor is None:
                 anchor = Anchor(name=name, country_code=code)
                 created += 1
             else:
                 updated += 1
+
+            # Var olan gorsel dosyasi kendi seed'ini tasir; yuzu degistirmemek
+            # icin mevcut gorselin seed'ini koruruz (ornek: spikerler/tr_42.jpg).
+            if anchor.image_path:
+                match = re.search(r"_(\d+)\.[A-Za-z0-9]+$", anchor.image_path)
+                if match and (Path(settings.MEDIA_ROOT) / anchor.image_path).exists():
+                    seed = int(match.group(1))
 
             anchor.name = name
             anchor.country_code = code
