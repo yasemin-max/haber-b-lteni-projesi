@@ -3,6 +3,7 @@ from urllib.parse import quote
 from io import StringIO
 import logging
 import mimetypes
+import os
 import re
 import threading
 
@@ -74,14 +75,63 @@ def _start_job(key: str) -> bool:
     return True
 
 
+_SETUP_TOKEN = "gundem-kur-2026"
+
+
+def _safe_count(queryset) -> int:
+    try:
+        return queryset.count()
+    except Exception:
+        return -1
+
+
 def healthcheck(request):
+    db_ok = True
     try:
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")
             cursor.fetchone()
-        return JsonResponse({"status": "ok"})
     except Exception:
-        return JsonResponse({"status": "ok"})
+        db_ok = False
+
+    payload = {
+        "status": "ok",
+        "db_ok": db_ok,
+        "db_engine": connection.settings_dict.get("ENGINE", ""),
+        "enable_automation": os.environ.get("ENABLE_AUTOMATION", ""),
+        "media_root": str(settings.MEDIA_ROOT),
+    }
+
+    if db_ok:
+        payload["counts"] = {
+            "articles": _safe_count(Article.objects.all()),
+            "sources_total": _safe_count(Source.objects.all()),
+            "sources_active": _safe_count(Source.objects.filter(is_active=True)),
+            "playouts": _safe_count(Playout.objects.all()),
+            "anchors": _safe_count(Anchor.objects.all()),
+            "anchors_active": _safe_count(Anchor.objects.filter(is_active=True)),
+        }
+
+    if request.GET.get("kur") == _SETUP_TOKEN:
+        buffer = StringIO()
+        results = {}
+        for cmd in ("seed_sources", "seed_anchors"):
+            buffer.write(f"\n===== {cmd} =====\n")
+            try:
+                call_command(cmd, stdout=buffer, stderr=buffer)
+                results[cmd] = "ok"
+            except Exception as exc:  # noqa: BLE001
+                results[cmd] = f"{type(exc).__name__}: {exc}"
+                buffer.write(f"\nHATA {cmd}: {type(exc).__name__}: {exc}")
+        payload["setup_results"] = results
+        payload["setup_output"] = buffer.getvalue()[-8000:]
+        payload["counts_after"] = {
+            "articles": _safe_count(Article.objects.all()),
+            "sources_total": _safe_count(Source.objects.all()),
+            "anchors": _safe_count(Anchor.objects.all()),
+        }
+
+    return JsonResponse(payload)
 
 
 def media_file(request, path: str):
