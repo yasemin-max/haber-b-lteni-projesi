@@ -1,3 +1,7 @@
-from config.urls import urlpatterns
+from django.contrib import admin
+from django.urls import path, include
 
-__all__ = ["urlpatterns"]
+urlpatterns = [
+    path('admin/', admin.site.urls),
+    # Projenizdeki diğer path tanımları...
+]
