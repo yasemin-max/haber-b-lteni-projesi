@@ -92,7 +92,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = 'urls'
+ROOT_URLCONF = 'haber-b-lteni-projesi.urls' 
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
