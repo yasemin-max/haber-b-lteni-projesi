@@ -31,10 +31,9 @@
         <a href="{{ video_url }}" download>⬇ Videoyu indir (MP4)</a>
       </div>
     {% else %}
-      <div class="empty">
-        Bu bülten için video bulunamadı veya saklama süresi doldu.<br>
-        <code>manage.py make_bulletin --playout={{ playout.pk }} --video-only</code>
-      </div>
+        <div class="empty">
+          Bu bülten için video henüz oluşturulmamış.
+        </div>
     {% endif %}
 
     {% if playout.error_message %}

@@ -13,8 +13,13 @@ echo "[entrypoint] Statik dosyalar toplaniyor..."
 python manage.py collectstatic --noinput || echo "[entrypoint] UYARI: collectstatic basarisiz oldu, devam ediliyor."
 
 if [ "${ENABLE_AUTOMATION}" = "true" ]; then
-  echo "[entrypoint] Otomasyon (run_studio) arka planda baslatiliyor..."
-  python manage.py run_studio --interval=5 --max-age=60 --max-errors=5 &
+  echo "[entrypoint] Kaynaklar ve spikerler arka planda hazirlaniyor..."
+  (
+    python manage.py seed_sources || echo "[entrypoint] UYARI: seed_sources basarisiz."
+    python manage.py seed_anchors || echo "[entrypoint] UYARI: seed_anchors basarisiz."
+    echo "[entrypoint] Otomasyon (run_studio) arka planda baslatiliyor..."
+    python manage.py run_studio --interval=5 --max-age=60 --max-errors=5
+  ) &
 fi
 
 echo "[entrypoint] Gunicorn baslatiliyor: 0.0.0.0:${PORT}"

@@ -542,32 +542,53 @@ KR_COUNTRY_CODE = "KR"
 
 
 def _get_anchor_for_country(country_code: str, main_anchor: Anchor) -> Anchor:
-    """Haberi, ülke için kayıtlı spikerle eşleştir; yoksa yerel spiker kaydı aç."""
-    if country_code == IL_COUNTRY_CODE:
-        main_anchor_local = _get_main_anchor() or main_anchor
-        return main_anchor_local
+    """Haberi, ülke için kayıtlı spikerle eşleştir; yoksa o ülke için spiker aç.
 
-    if country_code == main_anchor.country_code:
-        return main_anchor
-    if country_code in COUNTRIES_WITHOUT_DEDICATED_ANCHOR:
-        return main_anchor
+    Kural: her ülkenin haberi YALNIZCA kendi spikeriyle sunulur. Ülke kodu
+    olmayan (bilinmeyen) haberler ana spikere düşer.
+    """
+    main = _get_main_anchor() or main_anchor
+    code = (country_code or "").strip().upper()
 
+    # Ülke kodu yoksa ana spiker sunar.
+    if not code:
+        return main
+
+    # Ana spiker yalnızca kendi ülkesinin haberlerini sunar (ör. TR -> TR).
+    if main and main.country_code and main.country_code.upper() == code:
+        return main
+
+    if code in COUNTRIES_WITHOUT_DEDICATED_ANCHOR:
+        return main
+
+    # O ülkeye ait aktif spiker varsa onu kullan.
     speaker = (
-        Anchor.objects.filter(country_code=country_code, is_active=True)
+        Anchor.objects.filter(country_code=code, is_active=True)
         .order_by("-is_main", "pk")
         .first()
     )
     if speaker:
         return speaker
 
-    voice, pitch, rate = VOICE_VARIANTS.get(
-        country_code,
-        VOICE_VARIANTS.get(main_anchor.country_code, VOICE_VARIANTS["TR"]),
+    # Pasif olsa da kayıt varsa yeniden etkinleştir (isim/ülke karışmasın).
+    speaker = (
+        Anchor.objects.filter(country_code=code).order_by("-is_main", "pk").first()
     )
-    country_name = COUNTRY_NAMES.get(country_code, country_code)
+    if speaker:
+        if not speaker.is_active:
+            speaker.is_active = True
+            speaker.save(update_fields=["is_active"])
+        return speaker
+
+    # Hiç kayıt yoksa o ülke için yeni spiker aç (kendi sesiyle).
+    voice, pitch, rate = VOICE_VARIANTS.get(
+        code,
+        VOICE_VARIANTS.get(main.country_code if main else "TR", VOICE_VARIANTS["TR"]),
+    )
+    country_name = COUNTRY_NAMES.get(code, code)
     return Anchor.objects.create(
         name=f"{country_name} Spikeri",
-        country_code=country_code,
+        country_code=code,
         gender=Anchor.FEMALE,
         voice=voice,
         voice_pitch=pitch,

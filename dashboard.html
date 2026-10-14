@@ -66,8 +66,8 @@
           {% else %}<span class="badge">Taslak</span>{% endif %}
         </li>
       {% empty %}
-        <li class="empty">Henüz bülten üretilmedi.<br>
-          <code>manage.py make_bulletin</code> komutunu çalıştır.</li>
+          <li class="empty">Henüz bülten üretilmedi.<br>
+          "Bülten Oluştur" düğmesiyle bülten üretilebilir.</li>
       {% endfor %}
     </ul>
   </div>
@@ -88,7 +88,7 @@
           </a>
         {% empty %}
           <div class="empty">
-            Spiker yok. <code>manage.py build_anchor --main</code> çalıştır.
+            Spikerler henüz oluşturulmamış.
           </div>
         {% endfor %}
       </div>
@@ -129,7 +129,7 @@
         <div class="dur">{{ a.displayed_at|date:"d.m.Y H:i" }}</div>
       </li>
     {% empty %}
-      <li class="empty">Henüz haber çekilmedi. <code>manage.py fetch_news</code></li>
+      <li class="empty">Henüz haber çekilmedi. "Haber Çek" düğmesiyle haber çekilebilir.</li>
     {% endfor %}
   </ul>
 </div>
