@@ -10,6 +10,10 @@ Kullanim:
     python manage.py seed_anchors --no-image
 """
 
+import re
+from pathlib import Path
+
+from django.conf import settings
 from django.core.management.base import BaseCommand
 
 from news.models import Anchor
@@ -22,19 +26,19 @@ COUNTRY_SEEDS = {
     "DE": 77,
     "FR": 63,
     "RU": 88,
-    "CN": 93,
-    "JP": 84,
+    "CN": 42,
+    "JP": 42,
     "IN": 66,
-    "BR": 58,
+    "BR": 42,
     "IR": 29,
-    "SA": 73,
-    "EG": 46,
-    "QA": 52,
-    "IT": 61,
-    "KR": 101,
+    "SA": 42,
+    "EG": 42,
+    "QA": 42,
+    "IT": 42,
+    "KR": 42,
     "UA": 80,
     "SG": 69,
-    "IL": 37,
+    "IL": 42,
 }
 
 # Gorseli uretilecek ulkeler. TR da dahil; TR ana spikerdir.
@@ -79,6 +83,13 @@ class Command(BaseCommand):
             voice = voice_for_country(code, "female")
             seed = COUNTRY_SEEDS.get(code, 42)
             is_main = code == "TR"
+
+            # Var olan gorsel dosyasi kendi seed'ini tasir; yuzu degistirmemek
+            # icin mevcut gorselin seed'ini koruruz (ornek: spikerler/tr_42.jpg).
+            if anchor.image_path:
+                match = re.search(r"_(\d+)\.[A-Za-z0-9]+$", anchor.image_path)
+                if match and (Path(settings.MEDIA_ROOT) / anchor.image_path).exists():
+                    seed = int(match.group(1))
 
             anchor = Anchor.objects.filter(country_code=code).order_by("-is_main", "pk").first()
             if anchor is None:
