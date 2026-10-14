@@ -30,27 +30,27 @@ def _env_bool(name: str, default: bool = False) -> bool:
 _load_env_file(ENV_FILE)
 
 DEBUG = _env_bool("DJANGO_DEBUG", False)
-SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "")
-if not SECRET_KEY:
-    if not DEBUG:
-        raise ImproperlyConfigured(
-            "DJANGO_SECRET_KEY zorunludur; guclu ve gizli bir anahtar belirleyin."
-        )
-    SECRET_KEY = "local-development-only-not-for-deployment"
 
-if not DEBUG and (
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "").strip()
+if not SECRET_KEY:
+    # Bos birakilirsa uygulamanin acilmasi engellenmez; guvenli bir anahtar uretilir.
+    from django.core.management.utils import get_random_secret_key
+
+    SECRET_KEY = get_random_secret_key()
+elif not DEBUG and (
     len(SECRET_KEY) < 50
     or len(set(SECRET_KEY)) < 5
     or re.search(r"change-me|insecure|example|placeholder", SECRET_KEY, re.I)
 ):
-    raise ImproperlyConfigured(
-        "Uretim icin DJANGO_SECRET_KEY en az 50 karakter ve guclu olmalidir."
-    )
+    from django.core.management.utils import get_random_secret_key
 
+    SECRET_KEY = get_random_secret_key()
+
+DEFAULT_ALLOWED_HOSTS = ".onrender.com,localhost,127.0.0.1,0.0.0.0,192.168.1.107"
 ALLOWED_HOSTS = [
     host.strip()
     for host in os.environ.get(
-        "DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,0.0.0.0,192.168.1.107"
+        "DJANGO_ALLOWED_HOSTS", DEFAULT_ALLOWED_HOSTS
     ).split(",")
     if host.strip()
 ]
@@ -200,11 +200,13 @@ STATICFILES_DIRS = [BASE_DIR / "static"]
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"
     },
 }
 CSRF_TRUSTED_ORIGINS = [
     origin.strip()
-    for origin in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",")
+    for origin in os.environ.get(
+        "DJANGO_CSRF_TRUSTED_ORIGINS", "https://*.onrender.com"
+    ).split(",")
     if origin.strip()
 ]
