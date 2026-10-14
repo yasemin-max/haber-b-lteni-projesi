@@ -33,14 +33,7 @@ DEBUG = True
 SECRET_KEY = "django-insecure-render-test-key-1234567890"
 
 
-ALLOWED_HOSTS = [
-    host.strip()
-    for host in os.environ.get(
-        "DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,0.0.0.0,192.168.1.107"
-    ).split(",")
-    if host.strip()
-]
-
+ALLOWED_HOSTS = ['*']
 DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///db.sqlite3")
 if DATABASE_URL.startswith(("postgres://", "postgresql://")):
     database_url = urlparse(DATABASE_URL)
