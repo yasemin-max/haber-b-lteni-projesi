@@ -228,10 +228,15 @@ class Command(BaseCommand):
                 language_for_country,
             )
         except Exception as exc:  # noqa: BLE001
+            import traceback
+
+            tb = traceback.format_exc()
             playout.status = Playout.ERROR
             playout.error_message = f"{type(exc).__name__}: {exc}"[:2000]
             playout.save(update_fields=["status", "error_message"])
             self.stderr.write(self.style.ERROR(f"Bulten uretimi coktu: {playout.error_message}"))
+            self.stderr.write(tb)
+            logger.error("Bulten uretimi coktu:\n%s", tb)
             raise
 
     def _build_playout(
@@ -287,6 +292,9 @@ class Command(BaseCommand):
                         subtitle_text=subtitle_text_tr,
                     )
                 )
+
+                if not isinstance(speech, dict):
+                    speech = {"ok": False, "error": "ses sonucu donmedi (None)"}
 
                 if not speech.get("ok") and spoken_text != item.text:
                     self.stdout.write(
@@ -354,6 +362,9 @@ class Command(BaseCommand):
                 background=background,
                 credit=item.source_text or "",
             )
+
+            if not isinstance(shot, dict):
+                shot = {"ok": False, "error": "video sonucu donmedi (None)"}
 
             if not shot.get("ok"):
                 failures.append(f"kalem {item.order}: video - {shot.get('error') or 'video hatasi'}")

@@ -96,7 +96,35 @@ async def speak(
         return await _speak_gtts_safe(
             text, voice, output_mp3, output_srt, subtitle_text, rate, last_error
         )
+    word_timings = _restore_punctuation(text, word_timings)
+    duration = _duration_from_timings(word_timings)
 
+    if output_mp3:
+        output_mp3.parent.mkdir(parents=True, exist_ok=True)
+        output_mp3.write_bytes(bytes(audio_bytes))
+        measured_duration = probe_duration(output_mp3)
+        if measured_duration > 0:
+            duration = measured_duration
+
+    if output_srt:
+        subtitle_source = (subtitle_text or "").strip()
+        if subtitle_source and subtitle_source != text.strip():
+            srt_text = build_srt_for_subtitle(subtitle_source, duration)
+        else:
+            srt_text = build_srt(word_timings, text=text, fallback_duration=duration)
+        output_srt.parent.mkdir(parents=True, exist_ok=True)
+        output_srt.write_text(srt_text, encoding="utf-8")
+
+    result.update(
+        {
+            "ok": True,
+            "audio": str(output_mp3) if output_mp3 else "",
+            "srt": str(output_srt) if output_srt else "",
+            "duration": duration,
+            "word_timings": word_timings,
+        }
+    )
+    return result
 
 async def _speak_gtts_safe(
     text, voice, output_mp3, output_srt, subtitle_text, rate, last_error
@@ -129,53 +157,6 @@ async def _speak_gtts_safe(
             "duration": 0.0,
             "word_timings": [],
         }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
-    word_timings = _restore_punctuation(text, word_timings)
-    duration = _duration_from_timings(word_timings)
-
-    if output_mp3:
-        output_mp3.parent.mkdir(parents=True, exist_ok=True)
-        output_mp3.write_bytes(bytes(audio_bytes))
-        measured_duration = probe_duration(output_mp3)
-        if measured_duration > 0:
-            duration = measured_duration
-
-    if output_srt:
-        subtitle_source = (subtitle_text or "").strip()
-        if subtitle_source and subtitle_source != text.strip():
-            srt_text = build_srt_for_subtitle(subtitle_source, duration)
-        else:
-            srt_text = build_srt(word_timings, text=text, fallback_duration=duration)
-        output_srt.parent.mkdir(parents=True, exist_ok=True)
-        output_srt.write_text(srt_text, encoding="utf-8")
-
-    result.update(
-        {
-            "ok": True,
-            "audio": str(output_mp3) if output_mp3 else "",
-            "srt": str(output_srt) if output_srt else "",
-            "duration": duration,
-            "word_timings": word_timings,
-        }
-    )
-    return result
 
 
 _GTTS_LANG_OVERRIDES = {"zh": "zh-CN", "he": "iw"}
