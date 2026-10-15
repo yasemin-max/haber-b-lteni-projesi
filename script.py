@@ -1,5 +1,6 @@
 import logging
 import math
+import os
 import re
 
 from django.conf import settings
@@ -25,12 +26,21 @@ logger = logging.getLogger(__name__)
 
 SUMMARY_LIMIT = 600
 
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.environ.get(name, default))
+    except (TypeError, ValueError):
+        return default
+
+
 # Gercek bir ana haber bultenine yaklasmak icin daha uzun bir akis hedeflenir.
-MAX_ITEMS = 60
+# Bulut (DEBUG=False) zayif CPU'larda cok uzun surdugu icin daha kisa tutulur;
+# yerelde (DEBUG=True) tam uzunluk kullanilir. Ikisi de ortam degiskeniyle ayarlanir.
+MAX_ITEMS = _env_int("BULTEN_MAX_ITEM", 60 if settings.DEBUG else 20)
 
-TR_QUOTA = 20
+TR_QUOTA = _env_int("BULTEN_TR_QUOTA", 20 if settings.DEBUG else 8)
 
-BREAKING_COUNT = 3
+BREAKING_COUNT = _env_int("BULTEN_BREAKING", 3)
 
 WORLD_SKIP_CATEGORIES = {"Spor"}
 

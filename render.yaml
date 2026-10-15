@@ -46,6 +46,10 @@ services:
         value: "30"
       - key: ENABLE_AUTOMATION
         value: "true"
+      - key: BULTEN_MAX_ITEM
+        value: "20"
+      - key: BULTEN_TR_QUOTA
+        value: "8"
       - key: ANA_SPIKER
         value: "Türkiye Spikeri"
       - key: DJANGO_SUPERUSER_USERNAME
