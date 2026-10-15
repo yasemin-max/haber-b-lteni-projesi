@@ -153,10 +153,13 @@ def build_anchor_shot(
 
     if has_background:
         # Arka plan: bulaniklastir ve koyulastir ki yazi okunabilsin.
+        # Not: Eskiden boxblur=10:2 vardi; her karede tam ekran bulaniklastirma
+        # zayif sunucuda kodlamayi 150 sn'nin uzerine cikariyordu. Kaldirildi;
+        # okunabilirlik icin sadece karartma/renk ayari birakildi.
         steps.append(
             "[1:v]"
             "scale={w}:{h}:force_original_aspect_ratio=increase,"
-            "crop={w}:{h},boxblur=10:2,eq=brightness=-0.22:saturation=0.7[bg]".format(
+            "crop={w}:{h},eq=brightness=-0.28:saturation=0.65[bg]".format(
                 w=width, h=height
             )
         )
@@ -281,8 +284,8 @@ def build_anchor_shot(
         "-map", f"{audio_input_index}:a",
         "-t", f"{duration:.3f}",
         "-c:v", "libx264",
-        "-preset", "veryfast",
-        "-crf", "23",
+        "-preset", "ultrafast",
+        "-crf", "26",
         "-pix_fmt", "yuv420p",
         "-c:a", "aac",
         "-b:a", "128k",
@@ -421,10 +424,10 @@ def _run(command, output, cwd=None):
     """
     try:
         result = subprocess.run(
-            command, capture_output=True, text=True, timeout=150, cwd=str(cwd) if cwd else None
+            command, capture_output=True, text=True, timeout=180, cwd=str(cwd) if cwd else None
         )
     except subprocess.TimeoutExpired:
-        return {"ok": False, "path": "", "error": "FFmpeg zaman asimi (150 saniye)"}
+        return {"ok": False, "path": "", "error": "FFmpeg zaman asimi (180 saniye)"}
     except FileNotFoundError:
         return {"ok": False, "path": "", "error": "ffmpeg bulunamadi. PATH'e eklemelisin."}
    

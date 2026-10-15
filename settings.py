@@ -183,9 +183,12 @@ HABER_AJANSI = {
     "bilidirm_sesi": os.environ.get("BILDIRIM_SESI", "tr-TR-EmelNeural"),
     "ses_hizi": "+8%",
     "ses_perde": "+0Hz",
-    "video_genislik": 768,
-    "video_yukseklik": 1152,
-    "fps": 30,
+    # Render'in ucretsiz (tek CPU, 512MB) makinesinde 768x1152@30fps + boxblur
+    # gibi agir filtreler 25 sn'lik bir kalemi bile 150 sn'de kodlayamiyordu.
+    # Daha kucuk cozunurluk ve daha dusuk fps ile kodlama ~4-5 kat hizlanir.
+    "video_genislik": int(os.environ.get("VIDEO_GENISLIK", "540")),
+    "video_yukseklik": int(os.environ.get("VIDEO_YUKSEKLIK", "960")),
+    "fps": int(os.environ.get("VIDEO_FPS", "12")),
 }
 
 COMMERCIAL_SECONDS = 30
