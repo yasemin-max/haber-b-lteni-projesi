@@ -57,6 +57,9 @@ except ImportError:  # pragma: no cover - fallback when used outside a Django pa
 from sources_data import BREAKING_QUERIES, COUNTRY_QUERIES, CATEGORY_KEYWORDS, COUNTRY_KEYWORDS
 
 logger = logging.getLogger(__name__)
+# Ceviri saglayicilari kapali oldugunda her metin icin ayni uyari basilip
+# logu dolduruyordu; bu bayrakla surec basina BIR kez uyaririz.
+_warned_translation_unavailable = False
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/120.0 Safari/537.36"
@@ -380,7 +383,13 @@ def translate_text(
 
         result = " ".join(translated_chunks).strip()
         if not result or len(result) < 3 or result == text.strip():
-            logger.warning("Ceviri yapilamadi, orijinal metin korunuyor")
+            global _warned_translation_unavailable
+            if not _warned_translation_unavailable:
+                logger.warning(
+                    "Ceviri yapilamadi, orijinal metin korunuyor "
+                    "(saglayici erisilemiyor olabilir; sonraki denemeler sessiz)"
+                )
+                _warned_translation_unavailable = True
             # Try intermediate translation for problematic pairs (e.g. zh->tr)
             try:
                 if target_lang == "tr" and source_lang not in ("tr",):

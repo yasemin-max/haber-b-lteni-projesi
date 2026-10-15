@@ -153,6 +153,12 @@ AUTH_PASSWORD_VALIDATORS = [
 
 SECURE_SSL_REDIRECT = _env_bool("DJANGO_SECURE_SSL_REDIRECT", not DEBUG)
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+# SQLite'ta her istekte session satiri yazmak run_studio ile kilit
+# catismasi yaratiyordu ("database is locked"). Cerez tabanli session
+# ile web istekleri veritabanina YAZMAZ; boylece bulten uretimi bloke olmaz.
+SESSION_ENGINE = os.environ.get(
+    "DJANGO_SESSION_ENGINE", "django.contrib.sessions.backends.signed_cookies"
+)
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
 SECURE_CONTENT_TYPE_NOSNIFF = True

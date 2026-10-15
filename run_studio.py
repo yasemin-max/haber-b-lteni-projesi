@@ -8,6 +8,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db.models import Q
 from django.utils import timezone
 
+from news.locks import writer_lock
 from news.models import Article, Playout
 from script import _select_unplayed_articles
 
@@ -142,9 +143,19 @@ class Command(BaseCommand):
     def _cycle(self, options) -> tuple[bool, str]:
         """Bir turda: haber cek, sonra bulteni guncelle.
 
+        Yazma isleri (temizlik + cekme + bulten) tek bir kilit altinda
+        calisir. Boylece gunicorn istekleri ya da baska bir surec ayni
+        anda veritabani YAZMAZ (SQLite "database is locked" onlenir).
+
         Returns:
             (basarili_mi, aciklama)
         """
+        with writer_lock(timeout=120) as ok:
+            if not ok:
+                return False, "baska bir yazma islemi suruyor, tur atlandi"
+            return self._cycle_locked(options)
+
+    def _cycle_locked(self, options) -> tuple[bool, str]:
         call_command("cleanup_media", verbosity=0)
 
         # ---------- 1) HABER CEK ----------

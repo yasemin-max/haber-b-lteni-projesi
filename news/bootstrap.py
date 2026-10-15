@@ -78,10 +78,16 @@ def _run() -> None:
         if not _acquire_lock():
             logger.info("Kurulum baska bir surecte yapiliyor, atlaniyor.")
             return
-        _ensure_migrated()
-        _seed(images=False)
+        from news.locks import writer_lock
+
+        with writer_lock(timeout=300) as ok:
+            if ok:
+                _ensure_migrated()
+                _seed(images=False)
         _spawn_studio()
-        _seed(images=True)
+        with writer_lock(timeout=300) as ok:
+            if ok:
+                _seed(images=True)
     except Exception as exc:  # noqa: BLE001
         logger.warning("Bootstrap hatasi: %s", exc)
     finally:

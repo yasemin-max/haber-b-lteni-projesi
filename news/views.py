@@ -59,7 +59,15 @@ def _start_job(key: str) -> bool:
         buffer = StringIO()
         status = "done"
         try:
-            call_command(command, stdout=buffer, stderr=buffer, **kwargs)
+            from .locks import writer_lock
+
+            with writer_lock(timeout=180) as ok:
+                if not ok:
+                    raise RuntimeError(
+                        "Baska bir yazma islemi (haber cekme/bolten kurma) suruyor. "
+                        "Birazdan tekrar deneyin."
+                    )
+                call_command(command, stdout=buffer, stderr=buffer, **kwargs)
         except Exception as exc:  # noqa: BLE001 - arka planda kullaniciya gosterilir
             status = "error"
             buffer.write(f"\nHATA: {type(exc).__name__}: {exc}")
@@ -151,11 +159,22 @@ def healthcheck(request):
     if request.GET.get("log") == _SETUP_TOKEN:
         try:
             log_path = Path(settings.MEDIA_ROOT) / "run_studio.log"
-            payload["run_studio_log"] = (
-                log_path.read_text(encoding="utf-8", errors="replace")[-6000:]
-                if log_path.exists()
-                else "(log dosyasi yok)"
-            )
+            if not log_path.exists():
+                payload["run_studio_log"] = "(log dosyasi yok)"
+            else:
+                content = log_path.read_text(encoding="utf-8", errors="replace")
+                payload["run_studio_log"] = content[-4000:]
+                keywords = (
+                    "error", "hata", "traceback", "locked", "ffmpeg", "exception",
+                    "bulunamadi", "not found", "bulten", "===", "dongu", "haberler",
+                    "hazir", "fail", "killed",
+                )
+                important = [
+                    line
+                    for line in content.replace("\r", "\n").splitlines()
+                    if any(word in line.lower() for word in keywords)
+                ]
+                payload["run_studio_log_important"] = "\n".join(important[-120:])
         except Exception as exc:  # noqa: BLE001
             payload["run_studio_log_error"] = f"{type(exc).__name__}: {exc}"
 
