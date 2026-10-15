@@ -353,11 +353,11 @@ def live_playlist(request):
         except (TypeError, ValueError):
             spiker_pk = None
         if spiker_pk:
-            playouts = playout_qs[:3]
+            playouts = playout_qs[:60]
         else:
-            playouts = playout_qs[:1]
+            playouts = playout_qs[:8]
     else:
-        playouts = playout_qs[:1]
+        playouts = playout_qs[:8]
     seen_story_titles = set()
 
     for playout in playouts:

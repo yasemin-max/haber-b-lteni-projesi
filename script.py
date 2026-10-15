@@ -40,9 +40,9 @@ def _env_int(name: str, default: int) -> int:
 # Gercek bir ana haber bultenine yaklasmak icin daha uzun bir akis hedeflenir.
 # Bulut (DEBUG=False) zayif CPU'larda cok uzun surdugu icin daha kisa tutulur;
 # yerelde (DEBUG=True) tam uzunluk kullanilir. Ikisi de ortam degiskeniyle ayarlanir.
-MAX_ITEMS = _env_int("BULTEN_MAX_ITEM", 60 if settings.DEBUG else 5)
+MAX_ITEMS = _env_int("BULTEN_MAX_ITEM", 60 if settings.DEBUG else 7)
 
-TR_QUOTA = _env_int("BULTEN_TR_QUOTA", 20 if settings.DEBUG else 3)
+TR_QUOTA = _env_int("BULTEN_TR_QUOTA", 20 if settings.DEBUG else 4)
 
 BREAKING_COUNT = _env_int("BULTEN_BREAKING", 3 if settings.DEBUG else 1)
 
@@ -342,7 +342,9 @@ def _select_unplayed_articles() -> list[Article]:
     """
     candidates = (
         Article.objects.filter(is_active=True)
-        .exclude(playout_items__isnull=False)
+        .exclude(
+            playout_items__playout__status__in=[Playout.READY, Playout.ON_AIR]
+        )
         .select_related("category", "source")
         .order_by("-published_at", "-ingested_at", "-pk")
         .distinct()
