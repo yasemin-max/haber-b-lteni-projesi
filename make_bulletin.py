@@ -221,6 +221,22 @@ class Command(BaseCommand):
         playout.error_message = ""
         playout.save(update_fields=["status", "built_at", "error_message"])
 
+        try:
+            return self._build_playout(
+                playout, items, options, config, translate_text, anchor_service,
+                script_service, video_service, voice_service, Playout,
+            )
+        except Exception as exc:  # noqa: BLE001
+            playout.status = Playout.ERROR
+            playout.error_message = f"{type(exc).__name__}: {exc}"[:2000]
+            playout.save(update_fields=["status", "error_message"])
+            self.stderr.write(self.style.ERROR(f"Bulten uretimi coktu: {playout.error_message}"))
+            raise
+
+    def _build_playout(
+        self, playout, items, options, config, translate_text,
+        anchor_service, script_service, video_service, voice_service, Playout,
+    ):
         out_dir = Path(settings.MEDIA_ROOT) / "bultenler" / f"playout_{playout.pk}"
         audio_dir = out_dir / "ses"
         video_dir = out_dir / "video"

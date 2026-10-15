@@ -53,7 +53,7 @@ def generate_anchor_image(anchor, force: bool = False) -> dict:
     )
 
     
-    result = _download(url, target, timeout=180)
+    result = _download(url, target, timeout=30)
     if not result["ok"]:
         # Gorsel servisi (orn. pollinations) limitli/basarisiz olabilir. Bu
         # durumda spikeri gorselsiz birakip kalemi ATLAMAK yerine, mevcut
@@ -114,7 +114,7 @@ def generate_background_image(category_name: str, width: int = 768, height: int 
     # burada sahneyi kuruyoruz.)
     url = build_image_url(prompt, width=width, height=height, seed=1000)
 
-    result = _download(url, target, timeout=180)
+    result = _download(url, target, timeout=30)
     if result["ok"]:
         logger.info("Arka plan uretildi: %s", category_name)
     return result
@@ -143,8 +143,8 @@ def _fallback_image(target_dir: Path, country_code: str) -> Path | None:
 def _download(
     url: str,
     target: Path,
-    timeout: int = 180,
-    retries: int = 2,
+    timeout: int = 15,
+    retries: int = 1,
     max_bytes: int = 15 * 1024 * 1024,
 ) -> dict:
     """Gorseli indirir. Gerekirse yeniden dener.

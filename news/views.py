@@ -342,9 +342,11 @@ def live_playlist(request):
     media_root = Path(settings.MEDIA_ROOT).resolve()
     items = []
     spiker_pk = request.GET.get("spiker")
+    # Yayin icin birlestirilmis tek dosya (manifest) SART DEGIL; her kalemin
+    # kendi videosu da oynatilabilir. Bu yuzden manifest bossa da goster.
     playout_qs = Playout.objects.filter(
         status=Playout.READY,
-    ).exclude(manifest_path="").order_by("-created_at", "-pk")
+    ).order_by("-created_at", "-pk")
     if spiker_pk:
         try:
             spiker_pk = int(spiker_pk)

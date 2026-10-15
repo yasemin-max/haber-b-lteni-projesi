@@ -160,6 +160,16 @@ class Command(BaseCommand):
     def _cycle_locked(self, options) -> tuple[bool, str]:
         call_command("cleanup_media", verbosity=0)
 
+        # Onceki tur/canlilik kesintisinde yarim kalan "building" bultenler
+        # sonsuza dek "hazirlaniyor" gorunmesin; onlari hata olarak isaretle.
+        stale = Playout.objects.filter(status=Playout.BUILDING)
+        if stale.exists():
+            count = stale.update(
+                status=Playout.ERROR,
+                error_message="Yarim kaldi (surec kesildi); yeniden uretilecek.",
+            )
+            self.stdout.write(f"        {count} yarim bulten hata olarak isaretlendi")
+
         # ---------- 1) HABER CEK ----------
         self.stdout.write("  [1/2] haberler cekiliyor...")
         fetch_limit = int(

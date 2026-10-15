@@ -455,7 +455,7 @@ def _try_google(text: str, source_lang: str, target_lang: str = "tr") -> str:
     Anahtar/kayit gerektirmez. Basarisiz olursa "" doner.
     """
     try:
-        with httpx.Client(timeout=20, follow_redirects=True) as client:
+        with httpx.Client(timeout=8, follow_redirects=True) as client:
             response = client.get(
                 "https://translate.googleapis.com/translate_a/single",
                 params={
@@ -498,7 +498,7 @@ def _try_mymemory(text: str, source_lang: str, target_lang: str = "tr") -> str:
         params["de"] = mymemory_email
 
     try:
-        with httpx.Client(timeout=20, follow_redirects=True) as client:
+        with httpx.Client(timeout=8, follow_redirects=True) as client:
             response = client.get("https://api.mymemory.translated.net/get", params=params)
             response.raise_for_status()
             data = response.json()
@@ -516,7 +516,7 @@ def _try_libretranslate(text: str, source_lang: str, target_lang: str = "tr") ->
     """LibreTranslate cevirisi (istege bagli). Basarisizsa ""."""
     endpoint = getattr(settings, "LIBRETRANSLATE_URL", "https://libretranslate.com/translate")
     try:
-        with httpx.Client(timeout=20, follow_redirects=True) as client:
+        with httpx.Client(timeout=8, follow_redirects=True) as client:
             payload = {
                 "q": text,
                 "source": source_lang,

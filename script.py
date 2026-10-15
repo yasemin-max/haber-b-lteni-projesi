@@ -36,11 +36,11 @@ def _env_int(name: str, default: int) -> int:
 # Gercek bir ana haber bultenine yaklasmak icin daha uzun bir akis hedeflenir.
 # Bulut (DEBUG=False) zayif CPU'larda cok uzun surdugu icin daha kisa tutulur;
 # yerelde (DEBUG=True) tam uzunluk kullanilir. Ikisi de ortam degiskeniyle ayarlanir.
-MAX_ITEMS = _env_int("BULTEN_MAX_ITEM", 60 if settings.DEBUG else 10)
+MAX_ITEMS = _env_int("BULTEN_MAX_ITEM", 60 if settings.DEBUG else 7)
 
 TR_QUOTA = _env_int("BULTEN_TR_QUOTA", 20 if settings.DEBUG else 3)
 
-BREAKING_COUNT = _env_int("BULTEN_BREAKING", 3)
+BREAKING_COUNT = _env_int("BULTEN_BREAKING", 3 if settings.DEBUG else 2)
 
 WORLD_SKIP_CATEGORIES = {"Spor"}
 
