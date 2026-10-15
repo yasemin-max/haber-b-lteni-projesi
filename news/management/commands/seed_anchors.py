@@ -38,7 +38,6 @@ COUNTRY_SEEDS = {
     "KR": 42,
     "UA": 80,
     "SG": 69,
-    "IL": 42,
 }
 
 # Gorseli uretilecek ulkeler. TR da dahil; TR ana spikerdir.
@@ -101,6 +100,9 @@ class Command(BaseCommand):
             anchor.name = name
             anchor.country_code = code
             anchor.voice = voice
+            # Tum spikerler dogal (normal) hizda ve notr perdede konsun.
+            anchor.voice_pitch = "+0Hz"
+            anchor.voice_rate = "+0%"
             anchor.image_seed = seed
             anchor.is_active = True
             anchor.is_main = is_main
@@ -123,8 +125,13 @@ class Command(BaseCommand):
                 self.style.SUCCESS(f"  {code}: {name} ({voice}) gorsel-hazir={bool(anchor.image_path)}")
             )
 
+        # Listede olmayan ulke spikerlerini (or. Israil) kaldir. "Israil
+        # spikerini asla koyma" kuralini veritabani duzeyinde garanti eder.
+        removed = Anchor.objects.exclude(country_code__in=COUNTRIES).delete()
+
         self.stdout.write(
             self.style.SUCCESS(
-                f"Spikerler hazir. yeni={created} guncel={updated} gorsel={images}"
+                f"Spikerler hazir. yeni={created} guncel={updated} gorsel={images} "
+                f"silinen={removed[0]}"
             )
         )

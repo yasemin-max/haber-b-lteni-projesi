@@ -226,13 +226,18 @@ def _speak_gtts(text, voice, output_mp3, output_srt, subtitle_text, rate="", las
     # hesaplanir (sure degistigi icin altyazi yeni sureye gore kurulur).
     if output_mp3:
         base_duration = probe_duration(output_mp3)
-        word_count = max(1, len(text.split()))
-        base_wpm = word_count / (base_duration / 60.0) if base_duration > 0 else 0.0
-        if base_wpm > 0 and base_wpm < GTTS_TARGET_WPM:
-            factor = min(2.5, GTTS_TARGET_WPM / base_wpm)
-        else:
-            factor = 1.8
-        _speedup_mp3(Path(output_mp3), factor)
+        # Hiz ayari YALNIZCA Turkce icin uygulanir. Yabanci dillerde (oz.
+        # Japonca/Cince) sozcuk sayimi bosluga dayanmadigi icin atempo
+        # yanlis hesaplaniyor ve konusma anlasilmaz hale geliyordu; bu
+        # diller dogal hizinda birakilir.
+        if lang == "tr" and base_duration > 0:
+            word_count = max(1, len(text.split()))
+            base_wpm = word_count / (base_duration / 60.0)
+            if 0 < base_wpm < GTTS_TARGET_WPM:
+                factor = min(1.35, GTTS_TARGET_WPM / base_wpm)
+            else:
+                factor = 1.15
+            _speedup_mp3(Path(output_mp3), factor)
 
     duration = probe_duration(output_mp3) if output_mp3 else 0.0
     if output_mp3 and duration <= 0:

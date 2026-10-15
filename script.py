@@ -44,6 +44,53 @@ BREAKING_COUNT = _env_int("BULTEN_BREAKING", 3)
 
 WORLD_SKIP_CATEGORIES = {"Spor"}
 
+# Programa alinmayacak ulkeler: Israil spikeri ve haberleri projede yer almaz.
+SKIP_COUNTRIES = {"IL"}
+
+# "Haber degeri" tasimayan (dizi / magazin / tv programi) basliklar. Bunlar
+# bir haber bulteninde yer almaz; gundemin gercek, dikkat cekici haberleri
+# one cikar.
+SOFT_SKIP_KEYWORDS = (
+    "dizi", "dizisi", "dizinin", "dizide", "diziler", "magazin", "ünlü",
+    "unlu", "oyuncu", "manken", "şarkıcı", "sarkici", "şarkı", "sarki",
+    "survivor", "yarışma", "yarisma", "güzellik", "guzeLLik", "estetik",
+    "burç", "burc", "astroloji", "dedikodu", "tv program", "reyting",
+    "aşk iddiası", "aşkı", "evlilik", "boşanma", "bosanma", "kırmızı halı",
+)
+
+# Bu kategoriler "gündem" disi kabul edilir; en onemli haberleri one almak
+# icin bultene alinmaz.
+SOFT_SKIP_CATEGORIES = {"Kultur-Sanat", "Yasam"}
+
+# Turkce olmadigi yuksek olasilikla kesin olan metni ana (Turkiye) spikeri
+# SUNMAZ; boylece Turkiye spikeri yabanci/Ingilizce haber okumaz.
+_TURKISH_CHARS = set("çğıöşüÇĞİÖŞÜ")
+_TURKISH_MARKERS = (
+    " ve ", " bir ", " için ", " icin ", " ile ", " bu ", " şu ", " su ",
+    " haber ", " son dakika ", " açıklama ", " aciklama ", " gündem ",
+    " gundem ", " yıl ", " yil ", " ülke ", " ulke ",
+)
+_ENGLISH_MARKERS = (
+    " the ", " of ", " and ", " to ", " in ", " with ", " for ", " says ",
+    " after ", " over ", " new ", " will ", " has ", " on ", " at ", " by ",
+)
+
+
+def _looks_non_turkish(text: str) -> bool:
+    """Metnin Turkce OLMADIGINI yuksek olasilikla tespit eder.
+
+    Turkiye spikeri yalnizca Turkce haber okumali. Bu kontrol yanlislikla
+    ana spikere dussen yabanci/Ingilizce metni eler.
+    """
+    if not text or not text.strip():
+        return False
+    if any(char in text for char in _TURKISH_CHARS):
+        return False
+    lowered = f" {text.lower()} "
+    if any(marker in lowered for marker in _TURKISH_MARKERS):
+        return False
+    return any(marker in lowered for marker in _ENGLISH_MARKERS)
+
 # Bir haberin gercekten "son dakika" sayilmasi icin iceriginde aranan
 # ifadeler. "Cilt lekeleri..." gibi is_breaking=True yazilmis ama haber
 # degeri olmayan basliklar bu esige takilir ve flas olarak sunulmaz.
@@ -138,10 +185,8 @@ def build_bulletin(
         items.append(item)
         return item
 
-    def add_story(article: Article, *, breaking: bool, announce: bool = True) -> PlayoutItem:
+    def add_story(article: Article, *, breaking: bool, announce: bool = True) -> PlayoutItem | None:
         category_name = article.category.name if article.category else ""
-        if category_name and category_name not in used_categories:
-            used_categories.append(category_name)
         speaker = _get_anchor_for_country(article.country_code, main_anchor)
         baslik = _clean_title(article.title, article.source.name if article.source else "")
         if breaking:
@@ -150,6 +195,21 @@ def build_bulletin(
         else:
             text = _story_text(article)
             ticker = f"{_short(baslik, 70)}  •  {config['kanal_adi']}  •  CANLI YAYIN"
+
+        # Turkiye (ana) spikeri yabanci/Ingilizce metin okumaz; boyle bir
+        # kalem alta dusse bile sunulmaz.
+        if (
+            speaker is not None
+            and getattr(speaker, "is_main", False)
+            and _looks_non_turkish(text)
+        ):
+            logger.info(
+                "Ana spiker icin yabanci metin elendi: %s", baslik[:60]
+            )
+            return None
+
+        if category_name and category_name not in used_categories:
+            used_categories.append(category_name)
         return add_item(
             kind=PlayoutItem.BREAKING if breaking else PlayoutItem.STORY,
             article=article,
@@ -287,6 +347,14 @@ def _select_unplayed_articles() -> list[Article]:
     seen_titles: set[str] = set()
     for article in candidates:
         if article.title_key in seen_titles:
+            continue
+        if (article.country_code or "").upper() in SKIP_COUNTRIES:
+            continue
+        title_lower = (article.title or "").lower()
+        if any(k in title_lower for k in SOFT_SKIP_KEYWORDS):
+            continue
+        category_name = article.category.name if article.category else ""
+        if category_name in SOFT_SKIP_CATEGORIES:
             continue
         seen_titles.add(article.title_key)
         selected.append(article)
@@ -543,8 +611,9 @@ def _get_main_anchor() -> Anchor | None:
     return Anchor.objects.filter(is_main=True).first()
 
 
-# Bu ulkeler icin ayri spiker olusturulmaz; haberleri ana spiker sunar.
-COUNTRIES_WITHOUT_DEDICATED_ANCHOR = set()
+# Bu ulkeler icin ayri spiker OLUSTURULMAZ. Israil projede hic yer almaz:
+# ne spikeri olur ne haberi sunulur (bkz. SKIP_COUNTRIES).
+COUNTRIES_WITHOUT_DEDICATED_ANCHOR = {"IL"}
 
 
 IL_COUNTRY_CODE = "IL"

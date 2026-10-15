@@ -23,7 +23,6 @@ COUNTRY_APPEARANCE = {
     "IN": "Indian presenter, black hair",
     "BR": "Brazilian presenter, dark brown hair",
     "IR": "Iranian presenter, black hair",
-    "IL": "Israeli presenter, dark brown hair",
     "SA": "Saudi presenter, black hair",
     "IT": "Italian presenter, dark brown hair",
     "GR": "Greek presenter, dark hair",
@@ -36,7 +35,7 @@ COUNTRY_NAMES = {
     "TR": "Türkiye", "KR": "Güney Kore", "US": "Amerika", "GB": "İngiltere",
     "DE": "Almanya", "FR": "Fransa", "RU": "Rusya", "UA": "Ukrayna",
     "CN": "Çin", "JP": "Japonya", "IN": "Hindistan", "BR": "Brezilya",
-    "IR": "İran", "IL": "İsrail", "SA": "Suudi Arabistan", "IT": "İtalya",
+    "IR": "İran", "SA": "Suudi Arabistan", "IT": "İtalya",
     "GR": "Yunanistan", "NL": "Hollanda", "EG": "Mısır", "QA": "Katar",
     "SG": "Singapur",
 }
@@ -110,7 +109,7 @@ COUNTRY_LANGUAGE = {
     "TR": "tr", "US": "en", "GB": "en", "DE": "de", "FR": "fr", "RU": "ru",
     "CN": "zh-CN", "JP": "ja", "IN": "hi", "BR": "pt", "IR": "fa", "SA": "ar",
     "EG": "ar", "QA": "ar", "IT": "it", "KR": "ko", "UA": "uk", "NL": "nl",
-    "GR": "el", "SG": "en", "IL": "he",
+    "GR": "el", "SG": "en",
 }
 
 # Ulke kodu -> (kadin sesi, erkek sesi). Edge TTS yerel sesleri.
@@ -135,7 +134,6 @@ COUNTRY_VOICES = {
     "NL": ("nl-NL-ColetteNeural", "nl-NL-MaartenNeural"),
     "GR": ("el-GR-AthinaNeural", "el-GR-NestorasNeural"),
     "SG": ("en-SG-LunaNeural", "en-SG-WayneNeural"),
-    "IL": ("he-IL-HilaNeural", "he-IL-AvriNeural"),
 }
 
 

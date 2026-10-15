@@ -283,7 +283,13 @@ class BulletinCompositionTests(TestCase):
             is_active=False,
         )
 
-        playout = build_bulletin()
+        # Kota artik ortam degiskeniyle ayarlanir (bulutta daha kucuk). Bu
+        # test "tum bekleyen haberler akisa girer" kuralini dogruladigi icin
+        # kotayi gecici olarak yuksek tutariz.
+        import script
+
+        with patch.object(script, "TR_QUOTA", 50), patch.object(script, "MAX_ITEMS", 50):
+            playout = build_bulletin()
         story_items = list(
             playout.items.filter(kind__in=(PlayoutItem.STORY, PlayoutItem.BREAKING))
         )
