@@ -60,6 +60,11 @@ logger = logging.getLogger(__name__)
 # Ceviri saglayicilari kapali oldugunda her metin icin ayni uyari basilip
 # logu dolduruyordu; bu bayrakla surec basina BIR kez uyaririz.
 _warned_translation_unavailable = False
+# 429 (cok istek) durumunda ust uste basarisiz ceviri denemesi servisi
+# dakikalarca mesgul ediyordu. Bu devre kesici, art arda hatalardan sonra
+# ceviriyi bir sure DEVRE DISI birakir; toplama hizla tamamlanir.
+_translation_failures = 0
+_translation_cooldown_until = 0.0
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/120.0 Safari/537.36"
@@ -355,10 +360,16 @@ def translate_text(
     Ceviri yapilamazsa orijinal metin OLDUGU GIBI doner ve onbellege
     YAZILMAZ; boylece sonraki denemede tekrar cevrilir.
     """
+    global _warned_translation_unavailable, _translation_failures, _translation_cooldown_until
+
     if not text or len(text.strip()) < 3:
         return text
 
     if source_lang == target_lang:
+        return text
+
+    # Devre kesici: servis 429 veriyorsa bir sure hic denemeden gec.
+    if time.monotonic() < _translation_cooldown_until:
         return text
 
     try:
@@ -383,41 +394,18 @@ def translate_text(
 
         result = " ".join(translated_chunks).strip()
         if not result or len(result) < 3 or result == text.strip():
-            global _warned_translation_unavailable
-            if not _warned_translation_unavailable:
-                logger.warning(
-                    "Ceviri yapilamadi, orijinal metin korunuyor "
-                    "(saglayici erisilemiyor olabilir; sonraki denemeler sessiz)"
-                )
-                _warned_translation_unavailable = True
-            # Try intermediate translation for problematic pairs (e.g. zh->tr)
-            try:
-                if target_lang == "tr" and source_lang not in ("tr",):
-                    # if looks like CJK or translation returned same content
-                    has_cjk = any(0x4E00 <= ord(c) <= 0x9FFF for c in result or text)
-                    if has_cjk or (result == text.strip()):
-                        via_en = _call_translator(chunk if 'chunk' in locals() else text, source_lang, "en") if False else None  # avoid
-                        # easier: translate whole text via en
-                        via_en = _call_translator(text, source_lang, "en")
-                        if via_en:
-                            via_tr = _call_translator(via_en, "en", "tr")
-                            if via_tr and via_tr != via_en:
-                                result = via_tr
-                                Translation.objects.update_or_create(
-                                    source_hash=text_hash,
-                                    defaults={
-                                        "source_text": text,
-                                        "target_text": result,
-                                        "source_lang": source_lang,
-                                        "target_lang": target_lang,
-                                        "quality": 95.0,
-                                    },
-                                )
-                                return result
-            except Exception:
-                pass
+            _translation_failures += 1
+            if _translation_failures >= 8:
+                _translation_cooldown_until = time.monotonic() + 300.0
+                if not _warned_translation_unavailable:
+                    logger.warning(
+                        "Ceviri saglayicilari mesgul (429). 5 dk boyunca ceviri "
+                        "devre disi; orijinal metinler kullanilacak."
+                    )
+                    _warned_translation_unavailable = True
             return text
 
+        _translation_failures = 0
         Translation.objects.update_or_create(
             source_hash=text_hash,
             defaults={
@@ -698,7 +686,7 @@ def ingest_source(source: Source, limit: int = 40, is_breaking: bool = False) ->
                 logger.debug("Makale kontrolu gecildi: %s", article_url)
 
             source_lang = _guess_source_lang(source)
-            if source_lang != "tr":
+            if source_lang != "tr" and getattr(settings, "TRANSLATE_ON_INGEST", True):
                 translated_title = translate_text(title, source_lang)
                 translated_summary = translate_text(summary[:600], source_lang)
                 if translated_title != title:

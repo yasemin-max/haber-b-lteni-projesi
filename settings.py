@@ -192,6 +192,11 @@ COMMERCIAL_SECONDS = 30
 CEVIRI_ANAHTARI = os.environ.get("CEVIRI_ANAHTARI", "")
 MYMEMORY_EMAIL = os.environ.get("MYMEMORY_EMAIL", CEVIRI_ANAHTARI)
 TRANSLATION_PROVIDER = os.environ.get("TRANSLATION_PROVIDER", "mymemory").lower()
+# Toplama (ingest) sirasinda YUZLERCE haberi cevirmek, ucretsiz servisler
+# 429 (cok istek) dondurunce dakikalarca suruyor ve bulten hic kurulamiyordu.
+# Bulutta (DEBUG=False) varsayilan olarak toplama cevirisi KAPALI; ceviri
+# yalnizca bultene giren birkac kalem icin yapilir.
+TRANSLATE_ON_INGEST = _env_bool("TRANSLATE_ON_INGEST", DEBUG)
 LIBRETRANSLATE_URL = os.environ.get(
     "LIBRETRANSLATE_URL", "https://libretranslate.com/translate"
 )
@@ -209,6 +214,11 @@ STORAGES = {
         "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"
     },
 }
+# Render'in baslatma komutu collectstatic calistirmadigi icin staticfiles/
+# bos kaliyor ve sayfa stilsiz goruluyordu. Whitenoise'un finder modu, dosyalari
+# STATICFILES_DIRS'ten dogrudan sunar; collectstatic gerekmez.
+WHITENOISE_USE_FINDERS = True
+WHITENOISE_AUTOREFRESH = DEBUG
 CSRF_TRUSTED_ORIGINS = [
     origin.strip()
     for origin in os.environ.get(

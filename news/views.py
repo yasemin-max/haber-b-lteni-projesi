@@ -5,6 +5,7 @@ import logging
 import mimetypes
 import os
 import re
+import subprocess
 import threading
 
 from django.conf import settings
@@ -109,6 +110,21 @@ def healthcheck(request):
         "enable_automation": os.environ.get("ENABLE_AUTOMATION", ""),
         "media_root": str(settings.MEDIA_ROOT),
     }
+
+    for tool in ("ffmpeg", "ffprobe"):
+        try:
+            out = subprocess.run(
+                [tool, "-version"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            first = (out.stdout or out.stderr or "").splitlines()
+            payload[f"{tool}_available"] = out.returncode == 0
+            payload[f"{tool}_version"] = first[0][:120] if first else ""
+        except Exception as exc:  # noqa: BLE001
+            payload[f"{tool}_available"] = False
+            payload[f"{tool}_error"] = f"{type(exc).__name__}: {exc}"
 
     if db_ok:
         payload["counts"] = {

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import os
 import time
 from datetime import timedelta
 
+from django.conf import settings
 from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
 from django.db.models import Q
@@ -160,8 +162,11 @@ class Command(BaseCommand):
 
         # ---------- 1) HABER CEK ----------
         self.stdout.write("  [1/2] haberler cekiliyor...")
+        fetch_limit = int(
+            os.environ.get("BULTEN_FETCH_LIMIT", "30" if settings.DEBUG else "12")
+        )
         try:
-            call_command("fetch_news", verbosity=0)
+            call_command("fetch_news", verbosity=0, limit=fetch_limit)
             total = Article.objects.count()
             self.stdout.write(f"        veritabaninda {total} haber")
         except Exception as exc:  # noqa: BLE001
