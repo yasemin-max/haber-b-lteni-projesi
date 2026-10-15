@@ -125,8 +125,8 @@ class Command(BaseCommand):
                 self.style.SUCCESS(f"  {code}: {name} ({voice}) gorsel-hazir={bool(anchor.image_path)}")
             )
 
-        # Listede olmayan ulke spikerlerini (or. Israil) kaldir. "Israil
-        # spikerini asla koyma" kuralini veritabani duzeyinde garanti eder.
+        # Listede olmayan ulke spikerlerini kaldir; boylece yalnizca izinli
+        # ulkelerin spikerleri kalir.
         removed = Anchor.objects.exclude(country_code__in=COUNTRIES).delete()
 
         self.stdout.write(

@@ -33,7 +33,7 @@ class PromptHelperTests(TestCase):
     def test_country_ablative_uses_vowel_harmony(self):
         self.assertEqual(country_ablative("Almanya"), "Almanya'dan")
         self.assertEqual(country_ablative("Hindistan"), "Hindistan'dan")
-        self.assertEqual(country_ablative("İsrail"), "İsrail'den")
+        self.assertEqual(country_ablative("İran"), "İran'dan")
         self.assertEqual(country_ablative("Güney Kore"), "Güney Kore'den")
 
 

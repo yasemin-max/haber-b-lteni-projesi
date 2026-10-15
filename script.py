@@ -40,16 +40,16 @@ def _env_int(name: str, default: int) -> int:
 # Gercek bir ana haber bultenine yaklasmak icin daha uzun bir akis hedeflenir.
 # Bulut (DEBUG=False) zayif CPU'larda cok uzun surdugu icin daha kisa tutulur;
 # yerelde (DEBUG=True) tam uzunluk kullanilir. Ikisi de ortam degiskeniyle ayarlanir.
-MAX_ITEMS = _env_int("BULTEN_MAX_ITEM", 60 if settings.DEBUG else 7)
+MAX_ITEMS = _env_int("BULTEN_MAX_ITEM", 60 if settings.DEBUG else 9)
 
-TR_QUOTA = _env_int("BULTEN_TR_QUOTA", 20 if settings.DEBUG else 4)
+TR_QUOTA = _env_int("BULTEN_TR_QUOTA", 20 if settings.DEBUG else 3)
 
 BREAKING_COUNT = _env_int("BULTEN_BREAKING", 3 if settings.DEBUG else 1)
 
 WORLD_SKIP_CATEGORIES = {"Spor"}
 
-# Programa alinmayacak ulkeler: Israil spikeri ve haberleri projede yer almaz.
-SKIP_COUNTRIES = {"IL"}
+# Programa hic alinmayacak ulke kodlari (gerekirse buraya ekleyin).
+SKIP_COUNTRIES: set[str] = set()
 
 # "Haber degeri" tasimayan (dizi / magazin / tv programi) basliklar. Bunlar
 # bir haber bulteninde yer almaz; gundemin gercek, dikkat cekici haberleri
@@ -447,7 +447,20 @@ def _build_lineup(candidates: list[Article]) -> list[Article]:
     for group in by_country.values():
         group.sort(key=recency, reverse=True)
 
-    country_order = sorted(by_country, key=lambda cc: recency(by_country[cc][0]), reverse=True)
+    # Ulkeler artik "en tazesi" sirasiyla degil, DAHA AZ TEMSIL EDILEN once
+    # secilir. Boylece surekli ayni ulkeler (ayni spikerler) yayini isgal etmez;
+    # her bultende farkli ulkeler one cikar ve tum spikerler yayinda temsil
+    # edilir.
+    covered: dict[str, int] = {}
+    for cc in PlayoutItem.objects.filter(
+        playout__status__in=[Playout.READY, Playout.ON_AIR]
+    ).values_list("country_code", flat=True):
+        covered[cc] = covered.get(cc, 0) + 1
+
+    country_order = sorted(
+        by_country,
+        key=lambda cc: (covered.get(cc, 0), -recency(by_country[cc][0])),
+    )
     index = {cc: 0 for cc in country_order}
 
     while len(selected) < MAX_ITEMS:
@@ -617,15 +630,6 @@ def _get_main_anchor() -> Anchor | None:
     return Anchor.objects.filter(is_main=True).first()
 
 
-# Bu ulkeler icin ayri spiker OLUSTURULMAZ. Israil projede hic yer almaz:
-# ne spikeri olur ne haberi sunulur (bkz. SKIP_COUNTRIES).
-COUNTRIES_WITHOUT_DEDICATED_ANCHOR = {"IL"}
-
-
-IL_COUNTRY_CODE = "IL"
-KR_COUNTRY_CODE = "KR"
-
-
 def _get_anchor_for_country(country_code: str, main_anchor: Anchor) -> Anchor:
     """Haberi, ülke için kayıtlı spikerle eşleştir; yoksa o ülke için spiker aç.
 
@@ -641,9 +645,6 @@ def _get_anchor_for_country(country_code: str, main_anchor: Anchor) -> Anchor:
 
     # Ana spiker yalnızca kendi ülkesinin haberlerini sunar (ör. TR -> TR).
     if main and main.country_code and main.country_code.upper() == code:
-        return main
-
-    if code in COUNTRIES_WITHOUT_DEDICATED_ANCHOR:
         return main
 
     # O ülkeye ait aktif spiker varsa onu kullan.

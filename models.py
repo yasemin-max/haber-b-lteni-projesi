@@ -15,7 +15,6 @@ COUNTRIES = [
     ("IN", "Hindistan"),
     ("BR", "Brezilya"),
     ("IR", "Iran"),
-    ("IL", "Israel"),
     ("SA", "Suudi Arabistan"),
     ("UA", "Ukrayna"),
     ("IT", "Italya"),
