@@ -20,6 +20,8 @@ logger = logging.getLogger("news.bootstrap")
 
 _started = False
 _lock_handle = None
+_studio_proc = None
+_watchdog_started = False
 
 
 def _enabled() -> bool:
@@ -126,6 +128,7 @@ def _seed(images: bool = True) -> None:
 
 
 def _spawn_studio() -> None:
+    global _studio_proc
     try:
         from django.conf import settings
 
@@ -135,7 +138,10 @@ def _spawn_studio() -> None:
             "run_studio",
             "--interval=5",
             "--max-age=60",
-            "--max-errors=5",
+            # Cok yuksek tutuyoruz: gecici bir hata (kaynak 502, ceviri kotasi)
+            # yuzunden dongu kalici olarak DURMASIN. Durdurursak bir daha
+            # bulten uretilmez ve canli yayin bos kalir.
+            "--max-errors=100000",
         ]
         kwargs = {}
         env = os.environ.copy()
@@ -153,7 +159,35 @@ def _spawn_studio() -> None:
             kwargs["stderr"] = subprocess.STDOUT
         except Exception:  # noqa: BLE001
             pass
-        subprocess.Popen(cmd, cwd=os.getcwd(), **kwargs)
+        _studio_proc = subprocess.Popen(cmd, cwd=os.getcwd(), **kwargs)
         logger.info("run_studio ayri surecte baslatildi.")
     except Exception as exc:  # noqa: BLE001
         logger.warning("run_studio baslatilamadi: %s", exc)
+    _ensure_watchdog()
+
+
+def _ensure_watchdog() -> None:
+    """run_studio bir sekilde olurse (OOM/cokme) yeniden baslatacak nobetci.
+
+    Aksi halde ucretsiz sunucuda tek bir cokme, bir daha bulten
+    uretilmemesine ve canli yayinin bos kalmasina yol aciyordu.
+    """
+    global _watchdog_started
+    if _watchdog_started:
+        return
+    _watchdog_started = True
+    threading.Thread(
+        target=_studio_watchdog, name="gundem-studio-watchdog", daemon=True
+    ).start()
+
+
+def _studio_watchdog() -> None:
+    while True:
+        time.sleep(20)
+        try:
+            if _studio_proc is not None and _studio_proc.poll() is None:
+                continue
+            logger.warning("run_studio durmus gorunuyor; yeniden baslatiliyor.")
+            _spawn_studio()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("run_studio watchdog hatasi: %s", exc)
