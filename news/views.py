@@ -111,6 +111,23 @@ def healthcheck(request):
             "anchors": _safe_count(Anchor.objects.all()),
             "anchors_active": _safe_count(Anchor.objects.filter(is_active=True)),
         }
+        try:
+            recent = (
+                Playout.objects.order_by("-pk")[:5]
+            )
+            payload["playouts_recent"] = [
+                {
+                    "id": p.pk,
+                    "status": p.status,
+                    "items": p.item_count,
+                    "seconds": p.total_seconds,
+                    "error": (p.error_message or "")[:300],
+                    "created": p.created_at.isoformat() if getattr(p, "created_at", None) else "",
+                }
+                for p in recent
+            ]
+        except Exception as exc:  # noqa: BLE001
+            payload["playouts_recent_error"] = f"{type(exc).__name__}: {exc}"
 
     if request.GET.get("kur") == _SETUP_TOKEN:
         buffer = StringIO()
