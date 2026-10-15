@@ -139,15 +139,16 @@ def build_anchor_shot(
     # disina tasip YARIM/kesik gorunuyordu.
     anchor_width = max(2, int(width * 0.5)) if has_background else width
 
+    # Not: Eskiden burada `zoompan` ile Ken Burns yaklastirmasi vardi.
+    # Sunucudaki eski FFmpeg (5.1) surumunde zoompan + '-loop 1' kombinasyonu
+    # uzun haberlerde (orn. 52 sn) asiri bellek kullanip sureci olduruyor ve
+    # bulten sonsuza dek "hazirlaniyor" kaliyordu. Guvenilirlik icin statik
+    # gorsel kullaniyoruz: ayni yerlesim, cok daha az CPU/bellek.
     steps.append(
         "[0:v]"
         "scale={aw}:{h}:force_original_aspect_ratio=increase,"
         "crop={aw}:{h},"
-        "zoompan=z='min(zoom+0.0009,1.15)':d={n}:"
-        "x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':"
-        "fps={fps}:s={aw}x{h},setsar=1[anchor]".format(
-            aw=anchor_width, h=height, n=frames, fps=fps
-        )
+        "setsar=1[anchor]".format(aw=anchor_width, h=height)
     )
 
     if has_background:

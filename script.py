@@ -24,7 +24,11 @@ from voice import clean_for_speech
 logger = logging.getLogger(__name__)
 
 
-SUMMARY_LIMIT = 600
+SUMMARY_LIMIT = 480
+# Tek bir bulten kaleminin okunacagi en uzun metin. Uzun haberler (orn. 50 sn+)
+# sunucudaki zayif makinede video uretimini yavaslatip kilitlenmeye yol
+# aciyordu; haberleri ~35 sn ile sinirliyoruz.
+SPOKEN_LIMIT = 560
 
 def _env_int(name: str, default: int) -> int:
     try:
@@ -518,7 +522,7 @@ def _story_text(article: Article) -> str:
                 text = tr_text
         except Exception:
             pass
-    return clean_for_speech(text)
+    return clean_for_speech(_short(text, SPOKEN_LIMIT))
 
 
 def _breaking_text(article: Article) -> str:
@@ -539,7 +543,7 @@ def _breaking_text(article: Article) -> str:
                 text = tr_text
         except Exception:
             pass
-    return clean_for_speech(text)
+    return clean_for_speech(_short(text, SPOKEN_LIMIT))
 
 
 def _source_label(article: Article) -> str:
