@@ -225,6 +225,7 @@ class Command(BaseCommand):
             return self._build_playout(
                 playout, items, options, config, translate_text, anchor_service,
                 script_service, video_service, voice_service, Playout,
+                language_for_country,
             )
         except Exception as exc:  # noqa: BLE001
             playout.status = Playout.ERROR
@@ -236,6 +237,7 @@ class Command(BaseCommand):
     def _build_playout(
         self, playout, items, options, config, translate_text,
         anchor_service, script_service, video_service, voice_service, Playout,
+        language_for_country,
     ):
         out_dir = Path(settings.MEDIA_ROOT) / "bultenler" / f"playout_{playout.pk}"
         audio_dir = out_dir / "ses"
