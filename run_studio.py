@@ -57,6 +57,13 @@ class Command(BaseCommand):
 
     # ------------------------------------------------------------------
     def handle(self, *args, **options):
+        try:
+            import sys
+
+            sys.stdout.reconfigure(line_buffering=True)
+            sys.stderr.reconfigure(line_buffering=True)
+        except (AttributeError, OSError, ValueError):
+            pass
         interval = options["interval"]
         max_errors = options["max_errors"]
         if interval < 1:

@@ -420,10 +420,10 @@ def _run(command, output, cwd=None):
     """
     try:
         result = subprocess.run(
-            command, capture_output=True, text=True, timeout=600, cwd=str(cwd) if cwd else None
+            command, capture_output=True, text=True, timeout=150, cwd=str(cwd) if cwd else None
         )
     except subprocess.TimeoutExpired:
-        return {"ok": False, "path": "", "error": "FFmpeg zaman asimi (600 saniye)"}
+        return {"ok": False, "path": "", "error": "FFmpeg zaman asimi (150 saniye)"}
     except FileNotFoundError:
         return {"ok": False, "path": "", "error": "ffmpeg bulunamadi. PATH'e eklemelisin."}
    

@@ -138,6 +138,11 @@ def _spawn_studio() -> None:
             "--max-errors=5",
         ]
         kwargs = {}
+        env = os.environ.copy()
+        # Alt surecin ciktisi log dosyasina blok tamponla yaziliyordu; bu
+        # yuzden ilerleme canli gorunmuyordu. Satir tamponu icin zorla.
+        env["PYTHONUNBUFFERED"] = "1"
+        kwargs["env"] = env
         if os.name == "posix":
             kwargs["start_new_session"] = True
         try:

@@ -45,17 +45,28 @@ async def speak(
                 pitch=pitch,
                 boundary="WordBoundary",
             )
-            async for chunk in communicate.stream():
-                if chunk["type"] == "audio":
-                    audio_bytes.extend(chunk["data"])
-                elif chunk["type"] == "WordBoundary":
-                    word_timings.append(
-                        {
-                            "word": chunk["text"],
-                            "start": chunk["offset"] / TICKS_PER_SECOND,
-                            "duration": chunk["duration"] / TICKS_PER_SECOND,
-                        }
-                    )
+
+            async def _consume() -> None:
+                async for chunk in communicate.stream():
+                    if chunk["type"] == "audio":
+                        audio_bytes.extend(chunk["data"])
+                    elif chunk["type"] == "WordBoundary":
+                        word_timings.append(
+                            {
+                                "word": chunk["text"],
+                                "start": chunk["offset"] / TICKS_PER_SECOND,
+                                "duration": chunk["duration"] / TICKS_PER_SECOND,
+                            }
+                        )
+
+            # edge-tts sunucusu bulutta yanit vermezse sonsuza kadar
+            # beklemeyi engelle: 60 sn sonra vazgec, gTTS yedegine gec.
+            await asyncio.wait_for(_consume(), timeout=60)
+        except (asyncio.TimeoutError, TimeoutError) as exc:
+            last_error = f"edge-tts zaman asimi: {exc}"
+            logger.warning(last_error)
+            await asyncio.sleep(1.0)
+            continue
         except edge_tts.exceptions.NoAudioReceived as exc:
             last_error = f"Ses alinamadi (ses adi yanlis olabilir: {voice}) - {exc}"
             logger.error(last_error)
@@ -77,10 +88,47 @@ async def speak(
         await asyncio.sleep(1.5 * attempt)
     else:
         logger.warning("edge-tts basarisiz (%s). gTTS yedegi deneniyor.", last_error)
-        return _speak_gtts(text, voice, output_mp3, output_srt, subtitle_text, rate, last_error)
+        return await _speak_gtts_safe(
+            text, voice, output_mp3, output_srt, subtitle_text, rate, last_error
+        )
 
     if not audio_bytes:
-        return _speak_gtts(text, voice, output_mp3, output_srt, subtitle_text, rate, last_error)
+        return await _speak_gtts_safe(
+            text, voice, output_mp3, output_srt, subtitle_text, rate, last_error
+        )
+
+
+async def _speak_gtts_safe(
+    text, voice, output_mp3, output_srt, subtitle_text, rate, last_error
+) -> dict:
+    """gTTS'i ayri is parcaciginda, zaman asimiyla calistirir.
+
+    gTTS/requests bulutta yanit vermezse bulten uretimi takilmasin.
+    """
+    try:
+        return await asyncio.wait_for(
+            asyncio.to_thread(
+                _speak_gtts,
+                text,
+                voice,
+                output_mp3,
+                output_srt,
+                subtitle_text,
+                rate,
+                last_error,
+            ),
+            timeout=90,
+        )
+    except (asyncio.TimeoutError, TimeoutError):
+        logger.warning("gTTS zaman asimi.")
+        return {"ok": False, "error": "gTTS zaman asimi", "duration": 0.0, "word_timings": []}
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "ok": False,
+            "error": f"{type(exc).__name__}: {exc}",
+            "duration": 0.0,
+            "word_timings": [],
+        }
 
 
 
