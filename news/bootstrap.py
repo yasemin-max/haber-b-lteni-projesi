@@ -121,6 +121,8 @@ def _seed(images: bool = True) -> None:
 
 def _spawn_studio() -> None:
     try:
+        from django.conf import settings
+
         cmd = [
             sys.executable,
             "manage.py",
@@ -132,6 +134,14 @@ def _spawn_studio() -> None:
         kwargs = {}
         if os.name == "posix":
             kwargs["start_new_session"] = True
+        try:
+            log_path = Path(settings.MEDIA_ROOT) / "run_studio.log"
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            log_file = open(log_path, "a", buffering=1, encoding="utf-8", errors="replace")
+            kwargs["stdout"] = log_file
+            kwargs["stderr"] = subprocess.STDOUT
+        except Exception:  # noqa: BLE001
+            pass
         subprocess.Popen(cmd, cwd=os.getcwd(), **kwargs)
         logger.info("run_studio ayri surecte baslatildi.")
     except Exception as exc:  # noqa: BLE001

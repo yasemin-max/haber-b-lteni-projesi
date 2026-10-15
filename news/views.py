@@ -148,6 +148,17 @@ def healthcheck(request):
             "anchors": _safe_count(Anchor.objects.all()),
         }
 
+    if request.GET.get("log") == _SETUP_TOKEN:
+        try:
+            log_path = Path(settings.MEDIA_ROOT) / "run_studio.log"
+            payload["run_studio_log"] = (
+                log_path.read_text(encoding="utf-8", errors="replace")[-6000:]
+                if log_path.exists()
+                else "(log dosyasi yok)"
+            )
+        except Exception as exc:  # noqa: BLE001
+            payload["run_studio_log_error"] = f"{type(exc).__name__}: {exc}"
+
     return JsonResponse(payload)
 
 
